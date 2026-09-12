@@ -5,6 +5,9 @@ import {
   uploadReceipt,
   setOriginalImageUrl,
 } from './receiptSlice';
+import { loadQuota, logout } from '../auth/authSlice';
+import GoogleLoginButton from '../auth/GoogleLoginButton';
+import { getToken } from '../../api/client';
 import { dataURLtoBlob } from '../../lib/receiptEdit';
 
 function ReceiptUpload() {
@@ -20,6 +23,14 @@ function ReceiptUpload() {
 
   const dispatch = useDispatch();
   const { receiptData, loading, error } = useSelector((state) => state.receipt);
+  const { token, user, quota, error: authError } = useSelector((state) => state.auth);
+  const isLoggedIn = Boolean(token || getToken());
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      dispatch(loadQuota());
+    }
+  }, [dispatch, isLoggedIn]);
 
   useEffect(() => {
     if (error) {
@@ -28,10 +39,17 @@ function ReceiptUpload() {
   }, [error]);
 
   useEffect(() => {
+    if (authError) {
+      showCustomModal(authError);
+    }
+  }, [authError]);
+
+  useEffect(() => {
     if (receiptData) {
+      dispatch(loadQuota());
       navigate('/details');
     }
-  }, [receiptData, navigate]);
+  }, [receiptData, navigate, dispatch]);
 
   const showCustomModal = (message) => {
     setModalMessage(message);
@@ -48,6 +66,10 @@ function ReceiptUpload() {
   };
 
   const handleSubmit = async () => {
+    if (!isLoggedIn) {
+      showCustomModal('Silakan login dengan Google terlebih dahulu.');
+      return;
+    }
     if (!selectedImage) {
       showCustomModal('Silakan pilih atau ambil gambar resi terlebih dahulu.');
       return;
@@ -179,6 +201,44 @@ function ReceiptUpload() {
           {!selectedImage && <div className="w-6 h-6"></div>}
         </div>
 
+        {isLoggedIn ? (
+          <div className="mb-4 flex items-center justify-between gap-2 text-sm text-gray-700 bg-gray-50 rounded-md px-3 py-2">
+            <div>
+              <p className="font-medium">{user?.email || 'Logged in'}</p>
+              <p>
+                Sisa kuota:{' '}
+                <span className="font-semibold">
+                  {quota?.total_remaining ?? '…'}
+                </span>
+                {quota != null && (
+                  <span className="text-gray-500">
+                    {' '}
+                    (free {quota.free_remaining}/{quota.free_limit}
+                    {quota.credit_balance > 0
+                      ? ` + kredit ${quota.credit_balance}`
+                      : ''}
+                    )
+                  </span>
+                )}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => dispatch(logout())}
+              className="text-xs text-red-600 underline"
+            >
+              Logout
+            </button>
+          </div>
+        ) : (
+          <div className="mb-4 space-y-2">
+            <p className="text-sm text-center text-gray-600">
+              Login Google wajib sebelum OCR (5× gratis / bulan).
+            </p>
+            <GoogleLoginButton onSuccess={() => dispatch(loadQuota())} />
+          </div>
+        )}
+
         <div
           className="relative rounded-md border-2 border-dashed border-gray-400 p-4 mb-4 flex items-center justify-center overflow-hidden"
           style={{ minHeight: '200px' }}
@@ -224,8 +284,8 @@ function ReceiptUpload() {
           <div className="flex flex-col space-y-2">
             <button
               onClick={handleSubmit}
-              className={`bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 rounded-md transition duration-300 ease-in-out ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
-              disabled={loading}
+              className={`bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 rounded-md transition duration-300 ease-in-out ${loading || !isLoggedIn ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={loading || !isLoggedIn}
             >
               {loading ? 'Mengunggah...' : 'Submit'}
             </button>
@@ -266,12 +326,14 @@ function ReceiptUpload() {
                 <button
                   onClick={handleChooseFromGallery}
                   className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 rounded-md transition duration-300 ease-in-out"
+                  disabled={!isLoggedIn}
                 >
                   Pilih dari Galeri
                 </button>
                 <button
                   onClick={startCamera}
                   className="bg-green-500 hover:bg-green-700 text-white font-bold py-3 rounded-md transition duration-300 ease-in-out"
+                  disabled={!isLoggedIn}
                 >
                   Ambil Foto
                 </button>

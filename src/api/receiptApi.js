@@ -1,16 +1,14 @@
 import axios from 'axios';
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL ||
-  'https://splitbill.inviteweeding.my.id/api/v2';
+import { OCR_URL, authHeaders, clearToken } from './client';
 
 export async function uploadReceiptImage(imageBlob) {
   const formData = new FormData();
   formData.append('image', imageBlob, 'receipt.png');
 
-  const response = await axios.post(API_BASE_URL, formData, {
+  const response = await axios.post(OCR_URL, formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
+      ...authHeaders(),
     },
   });
 
@@ -18,8 +16,25 @@ export async function uploadReceiptImage(imageBlob) {
 }
 
 export function getUploadErrorMessage(error) {
+  const status = error.response?.status;
+  const body = error.response?.data;
+
+  if (status === 401) {
+    clearToken();
+    return 'Sesi login berakhir. Silakan login Google lagi.';
+  }
+  if (status === 402) {
+    return (
+      body?.data ||
+      'Kuota OCR habis. Free limit bulanan sudah terpakai.'
+    );
+  }
+  if (status === 429) {
+    return 'Terlalu banyak permintaan. Coba lagi sebentar.';
+  }
   if (error.response) {
-    return `Error: ${error.response.status} - ${error.response.data?.message || error.response.statusText}`;
+    const msg = body?.status || body?.message || error.response.statusText;
+    return `Error: ${status} - ${msg}`;
   }
   if (error.request) {
     return 'Tidak ada respons dari server. Periksa koneksi internet Anda.';
