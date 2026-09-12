@@ -202,22 +202,23 @@ function ReceiptUpload() {
         </div>
 
         {isLoggedIn ? (
-          <div className="mb-4 flex items-center justify-between gap-2 text-sm text-gray-700 bg-gray-50 rounded-md px-3 py-2">
-            <div>
-              <p className="font-medium">{user?.email || 'Logged in'}</p>
-              <p>
-                Sisa kuota:{' '}
-                <span className="font-semibold">
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2.5">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-gray-900">
+                {user?.email || 'Logged in'}
+              </p>
+              <p className="mt-0.5 text-xs text-gray-500">
+                Sisa kuota{' '}
+                <span className="font-semibold text-gray-700">
                   {quota?.total_remaining ?? '…'}
                 </span>
                 {quota != null && (
-                  <span className="text-gray-500">
+                  <span>
                     {' '}
-                    (free {quota.free_remaining}/{quota.free_limit}
+                    · free {quota.free_remaining}/{quota.free_limit}
                     {quota.credit_balance > 0
                       ? ` + kredit ${quota.credit_balance}`
                       : ''}
-                    )
                   </span>
                 )}
               </p>
@@ -225,8 +226,23 @@ function ReceiptUpload() {
             <button
               type="button"
               onClick={() => dispatch(logout())}
-              className="text-xs text-red-600 underline"
+              className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-600 transition duration-200 hover:border-red-300 hover:bg-red-100 hover:text-red-700 active:scale-[0.98]"
             >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-3.5 w-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                />
+              </svg>
               Logout
             </button>
           </div>
