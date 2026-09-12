@@ -7,7 +7,7 @@ RUN npm ci
 
 COPY . .
 
-ARG VITE_API_URL=https://splitbill.inviteweeding.my.id
+ARG VITE_API_URL=https://splitbill.inviteweeding.my.id/api/v2
 ENV VITE_API_URL=$VITE_API_URL
 
 RUN npm run build

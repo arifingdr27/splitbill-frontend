@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_URL || 'https://splitbill.inviteweeding.my.id';
+  import.meta.env.VITE_API_URL ||
+  'https://splitbill.inviteweeding.my.id/api/v2';
 
 export async function uploadReceiptImage(imageBlob) {
   const formData = new FormData();
