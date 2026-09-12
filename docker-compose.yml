@@ -1,0 +1,10 @@
+services:
+  splitbill-frontend:
+    build:
+      context: .
+      args:
+        VITE_API_URL: ${VITE_API_URL:-https://splitbill.inviteweeding.my.id}
+    image: splitbill-frontend:latest
+    ports:
+      - "${PORT:-8080}:80"
+    restart: unless-stopped

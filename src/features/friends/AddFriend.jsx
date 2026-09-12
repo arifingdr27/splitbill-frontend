@@ -1,76 +1,71 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux'; // Import hooks Redux
+import { useDispatch, useSelector } from 'react-redux';
 import {
   addFriend,
   updateFriendName,
   removeFriend,
-  setFriends, // Import setFriends
-} from '../redux/actions/friendActions'; // Sesuaikan path jika berbeda
+  setFriends,
+} from './friendsSlice';
 
 function AddFriends() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-
-  // Ambil daftar teman dari Redux store
   const friends = useSelector((state) => state.friends.friends);
 
-  // useEffect untuk menginisialisasi setidaknya 2 teman jika daftar kosong
   useEffect(() => {
     if (friends.length === 0) {
-      // Inisialisasi dengan 2 teman kosong
-      dispatch(setFriends([
-        { id: 1, name: '' },
-        { id: 2, name: '' }
-      ]));
+      dispatch(
+        setFriends([
+          { id: 1, name: '' },
+          { id: 2, name: '' },
+        ])
+      );
     }
-  }, [friends.length, dispatch]); // Terpicu hanya saat friends.length berubah atau dispatch berubah
+  }, [friends.length, dispatch]);
 
   const handleNameChange = (id, event) => {
-    dispatch(updateFriendName(id, event.target.value));
+    dispatch(updateFriendName({ id, name: event.target.value }));
   };
 
   const addFriendInput = () => {
-    // Cari ID terbesar yang ada, lalu tambahkan 1 untuk ID baru
-    const newId = friends.length > 0 ? Math.max(...friends.map(f => f.id)) + 1 : 1;
+    const newId =
+      friends.length > 0 ? Math.max(...friends.map((f) => f.id)) + 1 : 1;
     dispatch(addFriend({ id: newId, name: '' }));
   };
 
   const removeFriendInput = (idToRemove) => {
-    if (friends.length > 2) { // Minimal harus ada 2 teman
+    if (friends.length > 2) {
       dispatch(removeFriend(idToRemove));
     } else {
-      alert("Minimal harus ada dua teman."); // Ubah pesan alert
+      alert('Minimal harus ada dua teman.');
     }
   };
 
   const handleDone = () => {
-    const addedFriends = friends.filter(friend => friend.name.trim() !== '');
+    const addedFriends = friends.filter((friend) => friend.name.trim() !== '');
 
     if (addedFriends.length === 0) {
-        alert("Harap masukkan setidaknya satu nama teman.");
-        return;
+      alert('Harap masukkan setidaknya satu nama teman.');
+      return;
     }
 
-    // Pastikan tidak ada nama teman yang duplikat (opsional, tapi baik untuk data bersih)
-    const uniqueFriendNames = new Set(addedFriends.map(f => f.name.trim().toLowerCase()));
+    const uniqueFriendNames = new Set(
+      addedFriends.map((f) => f.name.trim().toLowerCase())
+    );
     if (uniqueFriendNames.size !== addedFriends.length) {
-        alert("Terdapat nama teman yang sama. Harap gunakan nama yang unik.");
-        return;
+      alert('Terdapat nama teman yang sama. Harap gunakan nama yang unik.');
+      return;
     }
 
-    console.log("Friends added:", addedFriends);
-    // Data teman sudah ada di Redux, jadi tidak perlu meneruskannya via navigate state.
-    navigate('/split_bill'); // Arahkan ke halaman selanjutnya (misal: /split-bill)
+    navigate('/split_bill');
   };
 
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-gray-50 font-sans">
-      {/* Container utama modal, sesuaikan max-w-sm atau max-w-xs untuk lebih sempit */}
       <div className="bg-white rounded-lg shadow-md w-full max-w-xs md:max-w-sm p-4">
-        {/* Header */}
         <div className="flex items-center pb-4">
-          <button className="text-gray-800 mr-4" onClick={() => navigate(-1)}> {/* Tombol back */}
+          <button className="text-gray-800 mr-4" onClick={() => navigate(-1)}>
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="h-6 w-6"
@@ -89,9 +84,8 @@ function AddFriends() {
           <h1 className="text-xl font-semibold text-gray-800">Add friends</h1>
         </div>
 
-        {/* Main Content (Input fields) */}
-        <div className="flex flex-col items-center py-4 overflow-y-auto max-h-[17rem] md:max-h-80"> {/* overflow-y-auto, bukan overflow-scroll */}
-          {friends.map(friend => (
+        <div className="flex flex-col items-center py-4 overflow-y-auto max-h-[17rem] md:max-h-80">
+          {friends.map((friend) => (
             <div key={friend.id} className="relative w-full mb-4">
               <input
                 type="text"
@@ -102,7 +96,7 @@ function AddFriends() {
                 style={{ backgroundColor: '#F8F4ED', borderColor: '#D9D9D9' }}
               />
               <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                {friends.length > 2 && ( // Tombol hapus muncul jika teman lebih dari 2
+                {friends.length > 2 && (
                   <button
                     onClick={() => removeFriendInput(friend.id)}
                     className="text-gray-500 hover:text-red-500 mr-2"
@@ -141,8 +135,7 @@ function AddFriends() {
           ))}
         </div>
 
-        {/* Done Button */}
-        <div className='flex flex-col gap-2'>
+        <div className="flex flex-col gap-2">
           <button
             onClick={addFriendInput}
             className="w-full py-3 mt-4 text-center text-gray-700 font-semibold border border-gray-300 rounded-lg hover:bg-gray-100"
