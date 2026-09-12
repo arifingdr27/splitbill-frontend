@@ -6,5 +6,5 @@ services:
         VITE_API_URL: ${VITE_API_URL:-https://splitbill.inviteweeding.my.id/api/v2}
     image: splitbill-frontend:latest
     ports:
-      - "${PORT:-8080}:80"
+      - "${PORT:-8082}:80"
     restart: unless-stopped

@@ -1,6 +1,6 @@
 .PHONY: help install dev build lint preview clean docker-build docker-up docker-down docker-logs
 
-PORT ?= 8080
+PORT ?= 8082
 VITE_API_URL ?= https://splitbill.inviteweeding.my.id/api/v2
 
 help: ## Show available targets
