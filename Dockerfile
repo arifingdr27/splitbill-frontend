@@ -5,14 +5,11 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
+# .env ikut di-copy; Vite membaca semua VITE_* saat `npm run build`
 COPY . .
-
-ARG VITE_API_URL=https://splitbill.inviteweeding.my.id/api/v2
-ENV VITE_API_URL=$VITE_API_URL
-
 RUN npm run build
 
-# Serve
+# Serve (hanya dist — .env tidak masuk image final)
 FROM nginx:1.27-alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
