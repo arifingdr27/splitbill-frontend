@@ -3,35 +3,65 @@ import { useDispatch, useSelector } from 'react-redux';
 import { loginWithGoogle } from './authSlice';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+const MAX_TRIES = 50;
+const RETRY_MS = 100;
 
 function GoogleLoginButton({ onSuccess }) {
   const dispatch = useDispatch();
   const { loading } = useSelector((state) => state.auth);
   const btnRef = useRef(null);
+  const onSuccessRef = useRef(onSuccess);
 
   useEffect(() => {
-    if (!GOOGLE_CLIENT_ID || !window.google || !btnRef.current) return;
+    onSuccessRef.current = onSuccess;
+  }, [onSuccess]);
 
-    window.google.accounts.id.initialize({
-      client_id: GOOGLE_CLIENT_ID,
-      callback: async (response) => {
-        if (!response.credential) return;
-        try {
-          await dispatch(loginWithGoogle(response.credential)).unwrap();
-          onSuccess?.();
-        } catch {
-          // error di authSlice
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID || !btnRef.current) return;
+
+    let cancelled = false;
+    let tries = 0;
+    let timerId;
+
+    const render = () => {
+      if (cancelled || !btnRef.current) return;
+
+      if (!window.google?.accounts?.id) {
+        if (tries++ < MAX_TRIES) {
+          timerId = setTimeout(render, RETRY_MS);
         }
-      },
-    });
+        return;
+      }
 
-    window.google.accounts.id.renderButton(btnRef.current, {
-      theme: 'outline',
-      size: 'large',
-      width: 320,
-      text: 'continue_with',
-    });
-  }, [dispatch, onSuccess]);
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: async (response) => {
+          if (!response.credential) return;
+          try {
+            await dispatch(loginWithGoogle(response.credential)).unwrap();
+            onSuccessRef.current?.();
+          } catch {
+            // error di authSlice
+          }
+        },
+      });
+
+      btnRef.current.innerHTML = '';
+      window.google.accounts.id.renderButton(btnRef.current, {
+        theme: 'outline',
+        size: 'large',
+        width: 320,
+        text: 'continue_with',
+      });
+    };
+
+    render();
+
+    return () => {
+      cancelled = true;
+      if (timerId) clearTimeout(timerId);
+    };
+  }, [dispatch]);
 
   if (!GOOGLE_CLIENT_ID) {
     return (

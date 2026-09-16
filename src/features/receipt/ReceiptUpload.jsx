@@ -7,6 +7,7 @@ import {
 } from './receiptSlice';
 import { loadQuota, logout } from '../auth/authSlice';
 import GoogleLoginButton from '../auth/GoogleLoginButton';
+import LoginRequiredButton from '../../components/LoginRequiredButton';
 import { getToken } from '../../api/client';
 import { dataURLtoBlob } from '../../lib/receiptEdit';
 
@@ -298,16 +299,17 @@ function ReceiptUpload() {
 
         {selectedImage ? (
           <div className="flex flex-col space-y-2">
-            <button
+            <LoginRequiredButton
+              locked={!isLoggedIn}
+              disabled={loading}
               onClick={handleSubmit}
-              className={`bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 rounded-md transition duration-300 ease-in-out ${loading || !isLoggedIn ? 'opacity-50 cursor-not-allowed' : ''}`}
-              disabled={loading || !isLoggedIn}
+              className="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 rounded-md transition duration-300 ease-in-out"
             >
               {loading ? 'Mengunggah...' : 'Submit'}
-            </button>
+            </LoginRequiredButton>
             <button
               onClick={handleResetSelectedImage}
-              className="bg-gray-400 hover:bg-gray-500 text-white font-bold py-3 rounded-md transition duration-300 ease-in-out"
+              className="bg-gray-400 hover:bg-gray-500 text-white font-bold py-3 rounded-md transition duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={loading}
             >
               Batal
@@ -339,20 +341,20 @@ function ReceiptUpload() {
                   className="hidden"
                   ref={fileInputRef}
                 />
-                <button
+                <LoginRequiredButton
+                  locked={!isLoggedIn}
                   onClick={handleChooseFromGallery}
-                  className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 rounded-md transition duration-300 ease-in-out"
-                  disabled={!isLoggedIn}
+                  className="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 rounded-md transition duration-300 ease-in-out"
                 >
                   Pilih dari Galeri
-                </button>
-                <button
+                </LoginRequiredButton>
+                <LoginRequiredButton
+                  locked={!isLoggedIn}
                   onClick={startCamera}
-                  className="bg-green-500 hover:bg-green-700 text-white font-bold py-3 rounded-md transition duration-300 ease-in-out"
-                  disabled={!isLoggedIn}
+                  className="w-full bg-green-500 hover:bg-green-700 text-white font-bold py-3 rounded-md transition duration-300 ease-in-out"
                 >
                   Ambil Foto
-                </button>
+                </LoginRequiredButton>
               </div>
             )}
           </div>
