@@ -11,6 +11,12 @@ import {
   applyTaxDppRule,
   getDppForTotalDisplay,
 } from '../../lib/receiptEdit';
+import {
+  formatCurrency,
+  getReceiptCurrency,
+  parseMoneyAmount,
+} from '../../lib/formatCurrency';
+import { resolveUnitPrice } from '../../lib/splitMath';
 
 function ReceiptDetails() {
   const navigate = useNavigate();
@@ -24,6 +30,7 @@ function ReceiptDetails() {
   const [editedReceipt, setEditedReceipt] = useState(null);
   const [originalTaxForDisplay, setOriginalTaxForDisplay] = useState(0);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
   useEffect(() => {
     if (receiptData) {
@@ -59,21 +66,23 @@ function ReceiptDetails() {
   }, [hasUnsavedChanges, isEditing]);
 
   const handleStartNewBill = () => {
-    if (hasUnsavedChanges) {
-      const confirmDiscard = window.confirm(
-        'You have unsaved changes. Are you sure you want to start a new bill and discard changes?'
-      );
-      if (!confirmDiscard) {
-        return;
-      }
-    }
+    setShowCloseConfirm(true);
+  };
+
+  const handleConfirmClose = () => {
+    setShowCloseConfirm(false);
     dispatch(clearReceiptData());
     navigate('/');
   };
 
+  const handleCancelClose = () => {
+    setShowCloseConfirm(false);
+  };
+
   const displayedReceipt = receiptData || DEFAULT_RECEIPT;
+  const currency = getReceiptCurrency(displayedReceipt);
   const totalItems = displayedReceipt.items.length;
-  const payment = parseFloat(displayedReceipt.totals.payment) || 0.0;
+  const payment = parseMoneyAmount(displayedReceipt.totals.payment);
 
   const handleInputChange = (e, path, type = 'text') => {
     const { value } = e.target;
@@ -146,7 +155,7 @@ function ReceiptDetails() {
     );
   }
 
-  const totalDisplayValue = parseFloat(displayedReceipt.totals.total) || 0;
+  const totalDisplayValue = parseMoneyAmount(displayedReceipt.totals.total);
   const dppForTotalDisplay = getDppForTotalDisplay(displayedReceipt);
 
   return (
@@ -207,7 +216,7 @@ function ReceiptDetails() {
             </h3>
             <p className="text-sm text-gray-500 mb-2">
               {totalItems} item{totalItems !== 1 ? 's' : ''}, Payment:{' '}
-              {payment.toFixed(2)}
+              {formatCurrency(payment, currency)}
             </p>
             <div className="rounded-md overflow-hidden shadow-sm">
               <img
@@ -286,9 +295,9 @@ function ReceiptDetails() {
                   />
                 ) : (
                   <p className="text-gray-800">
-                    Total: {totalDisplayValue.toFixed(2)}
+                    Total: {formatCurrency(totalDisplayValue, currency)}
                     {dppForTotalDisplay !== totalDisplayValue &&
-                      `, DPP: ${dppForTotalDisplay.toFixed(2)}`}
+                      `, DPP: ${formatCurrency(dppForTotalDisplay, currency)}`}
                   </p>
                 )}
               </div>
@@ -306,8 +315,9 @@ function ReceiptDetails() {
                   />
                 ) : (
                   <p className="text-gray-800">
-                    {(parseFloat(displayedReceipt.totals.discount) || 0).toFixed(
-                      2
+                    {formatCurrency(
+                      parseMoneyAmount(displayedReceipt.totals.discount),
+                      currency
                     )}
                   </p>
                 )}
@@ -332,7 +342,7 @@ function ReceiptDetails() {
                   />
                 ) : (
                   <p className="text-gray-800">
-                    {originalTaxForDisplay.toFixed(2)}
+                    {formatCurrency(originalTaxForDisplay, currency)}
                   </p>
                 )}
               </div>
@@ -351,8 +361,9 @@ function ReceiptDetails() {
                     />
                   ) : (
                     <p className="text-gray-800">
-                      {(parseFloat(displayedReceipt.service_charge) || 0).toFixed(
-                        2
+                      {formatCurrency(
+                        parseMoneyAmount(displayedReceipt.service_charge),
+                        currency
                       )}
                     </p>
                   )}
@@ -373,7 +384,10 @@ function ReceiptDetails() {
                     />
                   ) : (
                     <p className="text-gray-800">
-                      {(parseFloat(displayedReceipt.tax_amount) || 0).toFixed(2)}
+                      {formatCurrency(
+                        parseMoneyAmount(displayedReceipt.tax_amount),
+                        currency
+                      )}
                     </p>
                   )}
                 </div>
@@ -425,24 +439,24 @@ function ReceiptDetails() {
                         </>
                       ) : (
                         <div>
-                          <p className="font-medium text-gray-800">{item.name}</p>
+                          <p className="font-medium text-gray-800">
+                            {item.name}
+                          </p>
                           <p className="text-gray-600">
-                            IDR {(parseFloat(item.price) || 0).toFixed(2)}, Qty:{' '}
-                            {item.quantity || 1}
+                            {formatCurrency(resolveUnitPrice(item), currency)}
+                            , Qty: {item.quantity || 1}
                           </p>
                         </div>
                       )}
                     </div>
                     <p className="font-semibold text-gray-800">
-                      IDR{' '}
-                      {(
-                        parseFloat(
-                          item.total
-                            ? item.total.toString().replace(/,/g, '')
-                            : (parseFloat(item.price) || 0) *
-                                (parseFloat(item.quantity) || 1)
-                        )
-                      ).toFixed(2)}
+                      {formatCurrency(
+                        item.total != null && item.total !== ''
+                          ? parseMoneyAmount(item.total)
+                          : parseMoneyAmount(item.price) *
+                              (parseMoneyAmount(item.quantity) || 1),
+                        currency
+                      )}
                     </p>
                   </div>
                 ))
@@ -462,6 +476,45 @@ function ReceiptDetails() {
           </button>
         </div>
       </div>
+
+      {showCloseConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-gray-900/40 px-4">
+          <div
+            className="bg-white rounded-xl shadow-xl max-w-sm w-full p-5"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="close-confirm-title"
+          >
+            <h3
+              id="close-confirm-title"
+              className="text-lg font-semibold text-gray-900 mb-2"
+            >
+              Keluar dari detail resi?
+            </h3>
+            <p className="text-sm text-gray-600 mb-5 leading-relaxed">
+              {hasUnsavedChanges
+                ? 'Perubahan yang belum disimpan akan hilang, dan data resi ini akan dihapus. Anda yakin ingin keluar?'
+                : 'Data resi ini akan dihapus dan Anda kembali ke halaman awal. Anda yakin ingin keluar?'}
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleCancelClose}
+                className="flex-1 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmClose}
+                className="flex-1 py-2.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-semibold"
+              >
+                Ya, keluar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

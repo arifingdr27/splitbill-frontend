@@ -1,7 +1,15 @@
+import { parseMoneyAmount } from './formatCurrency';
+
 export const DEFAULT_RECEIPT = {
   image_url: 'https://via.placeholder.com/300x200?text=Receipt+Image',
   store_information: { store_name: 'Unknown Shop', address: 'N/A' },
   transaction_information: { date: 'N/A' },
+  currency: {
+    code: 'IDR',
+    symbol: 'Rp',
+    name: 'Indonesian Rupiah',
+    confidence: 'high',
+  },
   totals: {
     total: 0.0,
     discount: 0.0,
@@ -18,7 +26,7 @@ export function cloneReceipt(receipt) {
 
 export function parseFieldValue(value, type = 'text') {
   if (type === 'number' || type === 'float') {
-    return parseFloat(value) || 0;
+    return parseMoneyAmount(value);
   }
   if (type === 'integer') {
     return parseInt(value, 10) || 0;
@@ -40,15 +48,15 @@ export function setValueAtPath(obj, path, value) {
 
 export function getTaxAmount(receipt) {
   return (
-    parseFloat(receipt?.totals?.tax?.amount) ||
-    parseFloat(receipt?.totals?.tax?.total_tax) ||
+    parseMoneyAmount(receipt?.totals?.tax?.amount) ||
+    parseMoneyAmount(receipt?.totals?.tax?.total_tax) ||
     0
   );
 }
 
 export function applyTaxDppRule(receipt) {
   const currentTax = getTaxAmount(receipt);
-  const dpp = parseFloat(receipt?.totals?.tax?.dpp);
+  const dpp = parseMoneyAmount(receipt?.totals?.tax?.dpp);
   const shouldResetTax = (isNaN(dpp) || dpp === 0) && currentTax > 0;
 
   if (!shouldResetTax) {
@@ -72,8 +80,8 @@ export function applyTaxDppRule(receipt) {
 }
 
 export function getDppForTotalDisplay(receipt) {
-  const totalDisplayValue = parseFloat(receipt?.totals?.total) || 0;
-  const dppFromTax = parseFloat(receipt?.totals?.tax?.dpp);
+  const totalDisplayValue = parseMoneyAmount(receipt?.totals?.total);
+  const dppFromTax = parseMoneyAmount(receipt?.totals?.tax?.dpp);
 
   if (
     isNaN(dppFromTax) ||

@@ -1,17 +1,24 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { resetStore } from '../../app/store';
 import {
   normalizeReceiptItems,
-  calculateGrandTotal,
+  calculateAssignableGrandTotal,
   getGlobalFees,
   calculateParticipantBreakdown,
+  getSharedItemsTotal,
+  getSharedCostForPerson,
 } from '../../lib/splitMath';
+import {
+  formatCurrency,
+  getReceiptCurrency,
+} from '../../lib/formatCurrency';
 
 function SplitCompletePage() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const [showFinishConfirm, setShowFinishConfirm] = useState(false);
 
   const { receiptData } = useSelector((state) => state.receipt);
   const friends = useSelector((state) => state.friends.friends);
@@ -19,7 +26,9 @@ function SplitCompletePage() {
 
   const allOriginalItems = normalizeReceiptItems(receiptData);
   const fees = getGlobalFees(receiptData);
-  const totalReceiptSubtotal = calculateGrandTotal(allOriginalItems);
+  const totalReceiptSubtotal = calculateAssignableGrandTotal(allOriginalItems);
+  const sharedTotal = getSharedItemsTotal(allOriginalItems);
+  const currency = getReceiptCurrency(receiptData);
 
   const participants = friends.map((friend) => ({
     id: friend.id,
@@ -37,12 +46,18 @@ function SplitCompletePage() {
   const getItemDetails = (itemId) =>
     allOriginalItems.find((item) => item.id === itemId);
 
-  const getBreakdown = (participant) => {
+  const getBreakdown = (participant, personIndex) => {
+    const sharedCost = getSharedCostForPerson(
+      sharedTotal,
+      participants.length,
+      personIndex
+    );
     const breakdown = calculateParticipantBreakdown(
       participant.assignedItems,
       allOriginalItems,
       totalReceiptSubtotal,
-      fees
+      fees,
+      sharedCost
     );
     return {
       ...breakdown,
@@ -51,13 +66,22 @@ function SplitCompletePage() {
   };
 
   const grandTotalAssigned = participants.reduce(
-    (sum, p) => sum + getBreakdown(p).totalOwed,
+    (sum, p, index) => sum + getBreakdown(p, index).totalOwed,
     0
   );
 
   const handleStartNewBill = () => {
+    setShowFinishConfirm(true);
+  };
+
+  const handleConfirmFinish = () => {
+    setShowFinishConfirm(false);
     dispatch(resetStore());
     navigate('/');
+  };
+
+  const handleCancelFinish = () => {
+    setShowFinishConfirm(false);
   };
 
   return (
@@ -110,7 +134,7 @@ function SplitCompletePage() {
             <p className="text-lg">Total</p>
           </div>
           <p className="text-sm text-gray-600 ml-8">
-            You paid IDR: {grandTotalAssigned.toFixed(0)}
+            You paid: {formatCurrency(grandTotalAssigned, currency)}
           </p>
         </div>
 
@@ -120,8 +144,8 @@ function SplitCompletePage() {
               No participants found or items assigned.
             </p>
           ) : (
-            participants.map((participant) => {
-              const breakdown = getBreakdown(participant);
+            participants.map((participant, personIndex) => {
+              const breakdown = getBreakdown(participant, personIndex);
               return (
                 <div key={participant.id} className="mb-6">
                   <div className="flex items-center mb-3">
@@ -152,7 +176,7 @@ function SplitCompletePage() {
                       </svg>
                       <p className="text-md">Total</p>
                       <span className="ml-auto font-bold">
-                        IDR {breakdown.totalOwed.toFixed(0)}
+                        {formatCurrency(breakdown.totalOwed, currency)}
                       </span>
                     </div>
 
@@ -170,9 +194,10 @@ function SplitCompletePage() {
                                 {item.name} x{assigned.quantity}
                               </span>
                               <span>
-                                {(
-                                  (item.price || 0) * assigned.quantity
-                                ).toFixed(0)}
+                                {formatCurrency(
+                                  (item.price || 0) * assigned.quantity,
+                                  currency
+                                )}
                               </span>
                             </li>
                           );
@@ -183,26 +208,44 @@ function SplitCompletePage() {
                     <ul className="list-none p-0 mt-3 border-t border-gray-200 pt-3 text-sm text-gray-600">
                       <li className="flex justify-between mb-1">
                         <span>Subtotal</span>
-                        <span>{breakdown.subtotal.toFixed(0)}</span>
+                        <span>{formatCurrency(breakdown.subtotal, currency)}</span>
                       </li>
                       {fees.discount > 0 && breakdown.discount > 0 && (
                         <li className="flex justify-between mb-1 text-red-500 font-semibold">
                           <span>Discount</span>
-                          <span>-{breakdown.discount.toFixed(0)}</span>
+                          <span>
+                            -{formatCurrency(breakdown.discount, currency)}
+                          </span>
                         </li>
                       )}
                       {breakdown.taxAndServiceCharge > 0 && (
                         <li className="flex justify-between mb-1">
                           <span>Tax & Service Charge</span>
                           <span>
-                            {breakdown.taxAndServiceCharge.toFixed(0)}
+                            {formatCurrency(
+                              breakdown.taxAndServiceCharge,
+                              currency
+                            )}
+                          </span>
+                        </li>
+                      )}
+                      {breakdown.sharedCost > 0 && (
+                        <li className="flex justify-between mb-1">
+                          <span>Biaya bersama</span>
+                          <span>
+                            {formatCurrency(breakdown.sharedCost, currency)}
                           </span>
                         </li>
                       )}
                       {participant.additionalFees > 0 && (
                         <li className="flex justify-between mb-1">
                           <span>Other Fees</span>
-                          <span>{participant.additionalFees.toFixed(0)}</span>
+                          <span>
+                            {formatCurrency(
+                              participant.additionalFees,
+                              currency
+                            )}
+                          </span>
                         </li>
                       )}
                     </ul>
@@ -223,6 +266,44 @@ function SplitCompletePage() {
           </button>
         </div>
       </div>
+
+      {showFinishConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-gray-900/40 px-4">
+          <div
+            className="bg-white rounded-xl shadow-xl max-w-sm w-full p-5"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="finish-confirm-title"
+          >
+            <h3
+              id="finish-confirm-title"
+              className="text-lg font-semibold text-gray-900 mb-2"
+            >
+              Selesai membagi tagihan?
+            </h3>
+            <p className="text-sm text-gray-600 mb-5 leading-relaxed">
+              Screenshot dulu ya, biar catatan pembagiannya tidak hilang.
+              Kalau lanjut, data ini akan terhapus.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleCancelFinish}
+                className="flex-1 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50"
+              >
+                Belum
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmFinish}
+                className="flex-1 py-2.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-semibold"
+              >
+                Ya, buat baru
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
