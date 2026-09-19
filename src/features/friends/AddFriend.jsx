@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
@@ -15,6 +15,8 @@ function AddFriends() {
   const friends = useSelector((state) => state.friends.friends);
   const uiLanguage = useSelector((state) => state.ui.language);
   const t = getUiLabels(uiLanguage);
+  const listRef = useRef(null);
+  const prevCountRef = useRef(friends.length);
 
   useEffect(() => {
     if (friends.length === 0) {
@@ -26,6 +28,18 @@ function AddFriends() {
       );
     }
   }, [friends.length, dispatch]);
+
+  useEffect(() => {
+    if (friends.length > prevCountRef.current && listRef.current) {
+      listRef.current.scrollTo({
+        top: listRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+      const inputs = listRef.current.querySelectorAll('input');
+      inputs[inputs.length - 1]?.focus();
+    }
+    prevCountRef.current = friends.length;
+  }, [friends.length]);
 
   const handleNameChange = (id, event) => {
     dispatch(updateFriendName({ id, name: event.target.value }));
@@ -89,7 +103,10 @@ function AddFriends() {
           </h1>
         </div>
 
-        <div className="flex flex-col items-center py-4 overflow-y-auto max-h-[17rem] md:max-h-80">
+        <div
+          ref={listRef}
+          className="flex flex-col items-center py-4 overflow-y-auto max-h-[17rem] md:max-h-80"
+        >
           {friends.map((friend) => (
             <div key={friend.id} className="relative w-full mb-4">
               <input
