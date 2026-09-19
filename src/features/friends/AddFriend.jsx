@@ -13,6 +13,7 @@ function AddFriends() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const friends = useSelector((state) => state.friends.friends);
+  const receiptData = useSelector((state) => state.receipt.receiptData);
   const uiLanguage = useSelector((state) => state.ui.language);
   const t = getUiLabels(uiLanguage);
   const listRef = useRef(null);
@@ -72,6 +73,12 @@ function AddFriends() {
     );
     if (uniqueFriendNames.size !== addedFriends.length) {
       alert(t.duplicateFriendNames);
+      return;
+    }
+
+    const itemCount = receiptData?.items?.length ?? 0;
+    if (itemCount === 0) {
+      navigate('/details');
       return;
     }
 

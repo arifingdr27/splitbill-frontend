@@ -122,7 +122,7 @@ function SplitBillPage() {
 
   useEffect(() => {
     if (!receiptData || !receiptData.items || receiptData.items.length === 0) {
-      navigate('/');
+      navigate('/details');
       return;
     }
     if (!friends || friends.length === 0) {

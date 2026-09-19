@@ -65,6 +65,10 @@ const LABELS = {
     quantityPlaceholder: 'Jumlah',
     qtyLabel: (qty) => `Jml: ${qty}`,
     confirmAndSplit: 'Konfirmasi & bagi',
+    ocrEmptyTitle: 'Resi belum terbaca',
+    ocrEmptyBody:
+      'Maaf, kami belum bisa mengenali item apa pun dari gambar ini. Unggah ulang foto resi yang lebih jelas dan utuh, ya.',
+    ocrEmptyRetry: 'Unggah ulang',
     leaveDetailsTitle: 'Keluar dari detail resi?',
     leaveDetailsUnsaved:
       'Perubahan yang belum disimpan akan hilang, dan data resi ini akan dihapus. Anda yakin ingin keluar?',
@@ -209,6 +213,10 @@ const LABELS = {
     quantityPlaceholder: 'Quantity',
     qtyLabel: (qty) => `Qty: ${qty}`,
     confirmAndSplit: 'Confirm and split',
+    ocrEmptyTitle: 'Receipt not detected',
+    ocrEmptyBody:
+      'Sorry, we could not detect any items from this image. Please upload a clearer, complete receipt photo.',
+    ocrEmptyRetry: 'Upload again',
     leaveDetailsTitle: 'Leave receipt details?',
     leaveDetailsUnsaved:
       'Unsaved changes will be lost, and this receipt data will be cleared. Are you sure you want to leave?',

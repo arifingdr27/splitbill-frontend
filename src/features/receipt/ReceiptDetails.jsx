@@ -36,6 +36,7 @@ function ReceiptDetails() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
+  const [showOcrEmptyModal, setShowOcrEmptyModal] = useState(false);
 
   useEffect(() => {
     if (receiptData) {
@@ -88,6 +89,22 @@ function ReceiptDetails() {
   const currency = getReceiptCurrency(displayedReceipt);
   const totalItems = displayedReceipt.items.length;
   const payment = parseMoneyAmount(displayedReceipt.totals.payment);
+  const hasItems =
+    (editedReceipt?.items?.length ?? displayedReceipt.items?.length ?? 0) > 0;
+
+  const handleConfirmAndSplit = () => {
+    if (!hasItems) {
+      setShowOcrEmptyModal(true);
+      return;
+    }
+    navigate('/add_friend');
+  };
+
+  const handleOcrEmptyRetry = () => {
+    setShowOcrEmptyModal(false);
+    dispatch(clearReceiptData());
+    navigate('/');
+  };
 
   const handleInputChange = (e, path, type = 'text') => {
     const { value } = e.target;
@@ -498,15 +515,74 @@ function ReceiptDetails() {
           </div>
         </div>
 
-        <div className="flex-none p-6 border-t bg-white">
+        <div className="flex-none p-6 border-t bg-white space-y-3">
+          {!hasItems && (
+            <div
+              className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3"
+              role="status"
+            >
+              <p className="text-sm font-semibold text-amber-900">
+                {t.ocrEmptyTitle}
+              </p>
+              <p className="mt-1 text-xs text-amber-800 leading-relaxed">
+                {t.ocrEmptyBody}
+              </p>
+              <button
+                type="button"
+                onClick={handleOcrEmptyRetry}
+                className="mt-3 w-full rounded-md border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-100"
+              >
+                {t.ocrEmptyRetry}
+              </button>
+            </div>
+          )}
           <button
-            onClick={() => navigate('/add_friend')}
-            className="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 rounded-md w-full"
+            type="button"
+            onClick={handleConfirmAndSplit}
+            disabled={!hasItems}
+            className="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 rounded-md w-full disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-orange-500"
           >
             {t.confirmAndSplit}
           </button>
         </div>
       </div>
+
+      {showOcrEmptyModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-gray-900/40 px-4">
+          <div
+            className="bg-white rounded-xl shadow-xl max-w-sm w-full p-5"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ocr-empty-title"
+          >
+            <h3
+              id="ocr-empty-title"
+              className="text-lg font-semibold text-gray-900 mb-2"
+            >
+              {t.ocrEmptyTitle}
+            </h3>
+            <p className="text-sm text-gray-600 mb-5 leading-relaxed">
+              {t.ocrEmptyBody}
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowOcrEmptyModal(false)}
+                className="flex-1 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50"
+              >
+                {t.cancel}
+              </button>
+              <button
+                type="button"
+                onClick={handleOcrEmptyRetry}
+                className="flex-1 py-2.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-semibold"
+              >
+                {t.ocrEmptyRetry}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showCloseConfirm && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-gray-900/40 px-4">
