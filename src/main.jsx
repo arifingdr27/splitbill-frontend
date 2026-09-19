@@ -4,6 +4,9 @@ import './index.css';
 import { Provider } from 'react-redux';
 import store from './app/store';
 import Router from './routes/router';
+import { APP_NAME } from './config/app';
+
+document.title = APP_NAME;
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

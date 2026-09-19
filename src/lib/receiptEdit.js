@@ -10,6 +10,11 @@ export const DEFAULT_RECEIPT = {
     name: 'Indonesian Rupiah',
     confidence: 'high',
   },
+  language: {
+    code: 'id',
+    name: 'Indonesian',
+    confidence: 'high',
+  },
   totals: {
     total: 0.0,
     discount: 0.0,
