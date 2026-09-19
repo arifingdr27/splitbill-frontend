@@ -170,47 +170,47 @@ function ReceiptUpload() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
       <div className="bg-white rounded-lg shadow-md p-6 w-full max-w-md">
-        <div className="flex justify-between items-center mb-2">
-          {selectedImage ? (
-            <button
-              className="text-gray-600 font-semibold"
-              onClick={handleResetSelectedImage}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+        <div className="mb-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+          <div className="justify-self-start">
+            {selectedImage ? (
+              <button
+                type="button"
+                className="text-gray-600 font-semibold"
+                onClick={handleResetSelectedImage}
+                aria-label={t.cancel}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          ) : (
-            <></>
-          )}
-          <h2 className="text-xl font-semibold text-gray-800 flex-grow text-center">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            ) : null}
+          </div>
+          <h2 className="justify-self-center text-center text-xl font-semibold text-gray-800">
             {t.uploadTitle}
           </h2>
-          {!selectedImage && <div className="w-6 h-6"></div>}
-        </div>
-
-        <div className="flex justify-center mb-4">
-          <LanguageToggle />
+          <div className="justify-self-end">
+            <LanguageToggle />
+          </div>
         </div>
 
         {isLoggedIn ? (
-          <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2.5">
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-gray-900">
                 {user?.email || t.loggedIn}
               </p>
-              <p className="mt-0.5 text-xs text-gray-500">
+              <p className="mt-0.5 truncate text-xs text-gray-500">
                 {t.quotaRemaining}{' '}
                 <span className="font-semibold text-gray-700">
                   {quota?.total_remaining ?? '…'}
@@ -229,7 +229,7 @@ function ReceiptUpload() {
             <button
               type="button"
               onClick={() => dispatch(logout())}
-              className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-600 transition duration-200 hover:border-red-300 hover:bg-red-100 hover:text-red-700 active:scale-[0.98]"
+              className="inline-flex shrink-0 self-center cursor-pointer items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-600 transition duration-200 hover:border-red-300 hover:bg-red-100 hover:text-red-700 active:scale-[0.98]"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
