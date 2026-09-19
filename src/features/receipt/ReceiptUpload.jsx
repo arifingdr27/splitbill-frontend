@@ -8,8 +8,10 @@ import {
 import { loadQuota, logout } from '../auth/authSlice';
 import GoogleLoginButton from '../auth/GoogleLoginButton';
 import LoginRequiredButton from '../../components/LoginRequiredButton';
+import LanguageToggle from '../../components/LanguageToggle';
 import { getToken } from '../../api/client';
 import { dataURLtoBlob } from '../../lib/receiptEdit';
+import { getUiLabels } from '../../lib/pdfLabels';
 
 function ReceiptUpload() {
   const [selectedImage, setSelectedImage] = useState(null);
@@ -25,6 +27,8 @@ function ReceiptUpload() {
   const dispatch = useDispatch();
   const { receiptData, loading, error } = useSelector((state) => state.receipt);
   const { token, user, quota, error: authError } = useSelector((state) => state.auth);
+  const uiLanguage = useSelector((state) => state.ui.language);
+  const t = getUiLabels(uiLanguage);
   const isLoggedIn = Boolean(token || getToken());
 
   useEffect(() => {
@@ -68,11 +72,11 @@ function ReceiptUpload() {
 
   const handleSubmit = async () => {
     if (!isLoggedIn) {
-      showCustomModal('Silakan login dengan Google terlebih dahulu.');
+      showCustomModal(t.loginFirst);
       return;
     }
     if (!selectedImage) {
-      showCustomModal('Silakan pilih atau ambil gambar resi terlebih dahulu.');
+      showCustomModal(t.selectImageFirst);
       return;
     }
 
@@ -107,9 +111,7 @@ function ReceiptUpload() {
       setIsCameraActive(true);
     } catch (err) {
       if (err.name === 'NotFoundError' || err.name === 'OverconstrainedError') {
-        showCustomModal(
-          'Gagal mengakses kamera belakang atau tidak ditemukan. Mencoba kamera depan...'
-        );
+        showCustomModal(t.cameraBackFailed);
         try {
           const mediaStreamFront = await navigator.mediaDevices.getUserMedia({
             video: true,
@@ -117,14 +119,10 @@ function ReceiptUpload() {
           setStream(mediaStreamFront);
           setIsCameraActive(true);
         } catch {
-          showCustomModal(
-            'Gagal mengakses kamera. Pastikan izin kamera telah diberikan.'
-          );
+          showCustomModal(t.cameraFailed);
         }
       } else {
-        showCustomModal(
-          'Gagal mengakses kamera. Pastikan izin kamera telah diberikan.'
-        );
+        showCustomModal(t.cameraFailed);
       }
     }
   };
@@ -172,7 +170,7 @@ function ReceiptUpload() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
       <div className="bg-white rounded-lg shadow-md p-6 w-full max-w-md">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center mb-2">
           {selectedImage ? (
             <button
               className="text-gray-600 font-semibold"
@@ -197,28 +195,32 @@ function ReceiptUpload() {
             <></>
           )}
           <h2 className="text-xl font-semibold text-gray-800 flex-grow text-center">
-            Unggah Resi
+            {t.uploadTitle}
           </h2>
           {!selectedImage && <div className="w-6 h-6"></div>}
+        </div>
+
+        <div className="flex justify-center mb-4">
+          <LanguageToggle />
         </div>
 
         {isLoggedIn ? (
           <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2.5">
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-gray-900">
-                {user?.email || 'Logged in'}
+                {user?.email || t.loggedIn}
               </p>
               <p className="mt-0.5 text-xs text-gray-500">
-                Sisa kuota{' '}
+                {t.quotaRemaining}{' '}
                 <span className="font-semibold text-gray-700">
                   {quota?.total_remaining ?? '…'}
                 </span>
                 {quota != null && (
                   <span>
                     {' '}
-                    · free {quota.free_remaining}/{quota.free_limit}
+                    · {t.quotaFree(quota.free_remaining, quota.free_limit)}
                     {quota.credit_balance > 0
-                      ? ` + kredit ${quota.credit_balance}`
+                      ? ` ${t.quotaCredit(quota.credit_balance)}`
                       : ''}
                   </span>
                 )}
@@ -244,13 +246,13 @@ function ReceiptUpload() {
                   d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
                 />
               </svg>
-              Logout
+              {t.logout}
             </button>
           </div>
         ) : (
           <div className="mb-4 space-y-2">
             <p className="text-sm text-center text-gray-600">
-              Login Google wajib sebelum OCR (5× gratis / bulan).
+              {t.loginRequiredHint}
             </p>
             <GoogleLoginButton onSuccess={() => dispatch(loadQuota())} />
           </div>
@@ -263,7 +265,7 @@ function ReceiptUpload() {
           {selectedImage ? (
             <img
               src={selectedImage}
-              alt="Resi yang dipilih"
+              alt={t.selectedReceiptAlt}
               className="w-full h-auto object-contain rounded-md"
             />
           ) : isCameraActive ? (
@@ -289,9 +291,7 @@ function ReceiptUpload() {
                   d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
                 />
               </svg>
-              <p className="text-sm mt-2">
-                Pilih dari galeri atau ambil foto resi.
-              </p>
+              <p className="text-sm mt-2">{t.chooseGalleryOrPhoto}</p>
             </div>
           )}
           <canvas ref={canvasRef} className="hidden" />
@@ -305,14 +305,14 @@ function ReceiptUpload() {
               onClick={handleSubmit}
               className="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 rounded-md transition duration-300 ease-in-out"
             >
-              {loading ? 'Mengunggah...' : 'Submit'}
+              {loading ? t.submitting : t.submit}
             </LoginRequiredButton>
             <button
               onClick={handleResetSelectedImage}
               className="bg-gray-400 hover:bg-gray-500 text-white font-bold py-3 rounded-md transition duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={loading}
             >
-              Batal
+              {t.cancel}
             </button>
           </div>
         ) : (
@@ -323,13 +323,13 @@ function ReceiptUpload() {
                   onClick={handleTakePhoto}
                   className="bg-green-500 hover:bg-green-700 text-white font-bold py-3 rounded-md transition duration-300 ease-in-out"
                 >
-                  Ambil Foto
+                  {t.takePhoto}
                 </button>
                 <button
                   onClick={stopCamera}
                   className="bg-red-500 hover:bg-red-700 text-white font-bold py-3 rounded-md transition duration-300 ease-in-out"
                 >
-                  Batalkan Kamera
+                  {t.cancelCamera}
                 </button>
               </div>
             ) : (
@@ -346,14 +346,14 @@ function ReceiptUpload() {
                   onClick={handleChooseFromGallery}
                   className="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 rounded-md transition duration-300 ease-in-out"
                 >
-                  Pilih dari Galeri
+                  {t.chooseFromGallery}
                 </LoginRequiredButton>
                 <LoginRequiredButton
                   locked={!isLoggedIn}
                   onClick={startCamera}
                   className="w-full bg-green-500 hover:bg-green-700 text-white font-bold py-3 rounded-md transition duration-300 ease-in-out"
                 >
-                  Ambil Foto
+                  {t.takePhoto}
                 </LoginRequiredButton>
               </div>
             )}
@@ -369,7 +369,7 @@ function ReceiptUpload() {
               onClick={closeCustomModal}
               className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out"
             >
-              OK
+              {t.ok}
             </button>
           </div>
         </div>

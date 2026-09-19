@@ -17,6 +17,7 @@ import {
   parseMoneyAmount,
 } from '../../lib/formatCurrency';
 import { resolveUnitPrice } from '../../lib/splitMath';
+import { getUiLabels } from '../../lib/pdfLabels';
 
 function ReceiptDetails() {
   const navigate = useNavigate();
@@ -25,6 +26,8 @@ function ReceiptDetails() {
   const { receiptData, loading, error, originalImageUrl } = useSelector(
     (state) => state.receipt
   );
+  const uiLanguage = useSelector((state) => state.ui.language);
+  const t = getUiLabels(uiLanguage);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedReceipt, setEditedReceipt] = useState(null);
@@ -114,9 +117,7 @@ function ReceiptDetails() {
       applyTaxDppRule(editedReceipt);
 
     if (didResetTax) {
-      alert(
-        'DPP tidak terdeteksi atau 0, pajak (Tax) telah direset menjadi 0.'
-      );
+      alert(t.taxResetAlert);
     }
 
     dispatch(setEditedReceiptData(finalEditedReceipt));
@@ -135,7 +136,7 @@ function ReceiptDetails() {
     return (
       <div className="fixed inset-0 z-50 flex justify-center items-center bg-white">
         <p className="text-lg font-semibold text-gray-700">
-          Loading receipt details...
+          {t.loadingReceiptDetails}
         </p>
       </div>
     );
@@ -144,12 +145,14 @@ function ReceiptDetails() {
   if (error && !loading) {
     return (
       <div className="fixed inset-0 z-50 flex flex-col justify-center items-center bg-white p-4 text-center">
-        <p className="text-lg font-semibold text-red-600 mb-4">Error: {error}</p>
+        <p className="text-lg font-semibold text-red-600 mb-4">
+          {t.errorPrefix}: {error}
+        </p>
         <button
           onClick={handleStartNewBill}
           className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md"
         >
-          Go Back
+          {t.goBack}
         </button>
       </div>
     );
@@ -162,7 +165,9 @@ function ReceiptDetails() {
     <div className="fixed inset-0 z-50 flex justify-center items-center bg-white">
       <div className="flex flex-col rounded-lg shadow-xl w-full max-w-md h-[99%] md:h-screen">
         <div className="flex-none flex justify-between items-center p-4 border-b bg-white h-12 md:h-16">
-          <h2 className="text-xl font-semibold text-gray-800">Receipt details</h2>
+          <h2 className="text-xl font-semibold text-gray-800">
+            {t.receiptDetailsTitle}
+          </h2>
           <div className="flex items-center">
             {isEditing ? (
               <>
@@ -170,13 +175,13 @@ function ReceiptDetails() {
                   className="text-green-500 hover:text-green-700 mr-2 font-semibold"
                   onClick={handleSave}
                 >
-                  Save
+                  {t.save}
                 </button>
                 <button
                   className="text-gray-500 hover:text-gray-700 mr-2 font-semibold"
                   onClick={handleCancel}
                 >
-                  Cancel
+                  {t.cancel}
                 </button>
               </>
             ) : (
@@ -184,7 +189,7 @@ function ReceiptDetails() {
                 className="text-blue-500 hover:text-blue-700 mr-2 font-semibold"
                 onClick={() => setIsEditing(true)}
               >
-                Edit
+                {t.edit}
               </button>
             )}
             <button
@@ -212,26 +217,30 @@ function ReceiptDetails() {
         <div className="p-6 overflow-y-auto flex-grow">
           <div className="mb-4">
             <h3 className="text-lg font-semibold text-gray-700 mb-2">
-              Uploaded receipt
+              {t.uploadedReceipt}
             </h3>
             <p className="text-sm text-gray-500 mb-2">
-              {totalItems} item{totalItems !== 1 ? 's' : ''}, Payment:{' '}
-              {formatCurrency(payment, currency)}
+              {t.itemCountPayment(
+                totalItems,
+                formatCurrency(payment, currency)
+              )}
             </p>
             <div className="rounded-md overflow-hidden shadow-sm">
               <img
                 src={originalImageUrl || displayedReceipt.image_url}
-                alt="Uploaded Receipt"
+                alt={t.uploadedReceiptAlt}
                 className="w-full h-auto object-cover"
               />
             </div>
           </div>
 
           <div className="mb-4">
-            <h3 className="text-lg font-semibold text-gray-700 mb-2">Details</h3>
+            <h3 className="text-lg font-semibold text-gray-700 mb-2">
+              {t.detailsSection}
+            </h3>
             <div className="grid grid-cols-1 gap-2 text-sm text-gray-600">
               <div>
-                <p className="font-medium">Shop Name</p>
+                <p className="font-medium">{t.shopName}</p>
                 {isEditing ? (
                   <input
                     type="text"
@@ -248,7 +257,7 @@ function ReceiptDetails() {
                 )}
               </div>
               <div>
-                <p className="font-medium">Shop Address</p>
+                <p className="font-medium">{t.shopAddress}</p>
                 {isEditing ? (
                   <textarea
                     className="border rounded px-2 py-1 w-full text-gray-800"
@@ -265,7 +274,7 @@ function ReceiptDetails() {
                 )}
               </div>
               <div>
-                <p className="font-medium">Date</p>
+                <p className="font-medium">{t.date}</p>
                 {isEditing ? (
                   <input
                     type="date"
@@ -282,7 +291,7 @@ function ReceiptDetails() {
                 )}
               </div>
               <div>
-                <p className="font-medium">Total</p>
+                <p className="font-medium">{t.total}</p>
                 {isEditing ? (
                   <input
                     type="number"
@@ -295,14 +304,19 @@ function ReceiptDetails() {
                   />
                 ) : (
                   <p className="text-gray-800">
-                    Total: {formatCurrency(totalDisplayValue, currency)}
-                    {dppForTotalDisplay !== totalDisplayValue &&
-                      `, DPP: ${formatCurrency(dppForTotalDisplay, currency)}`}
+                    {dppForTotalDisplay !== totalDisplayValue
+                      ? t.totalWithDpp(
+                          formatCurrency(totalDisplayValue, currency),
+                          formatCurrency(dppForTotalDisplay, currency)
+                        )
+                      : t.totalLabelOnly(
+                          formatCurrency(totalDisplayValue, currency)
+                        )}
                   </p>
                 )}
               </div>
               <div>
-                <p className="font-medium">Discount</p>
+                <p className="font-medium">{t.discount}</p>
                 {isEditing ? (
                   <input
                     type="number"
@@ -323,7 +337,7 @@ function ReceiptDetails() {
                 )}
               </div>
               <div>
-                <p className="font-medium">Tax</p>
+                <p className="font-medium">{t.tax}</p>
                 {isEditing ? (
                   <input
                     type="number"
@@ -348,7 +362,7 @@ function ReceiptDetails() {
               </div>
               {editedReceipt?.service_charge !== undefined && (
                 <div>
-                  <p className="font-medium">Service Charge</p>
+                  <p className="font-medium">{t.serviceCharge}</p>
                   {isEditing ? (
                     <input
                       type="number"
@@ -371,7 +385,7 @@ function ReceiptDetails() {
               )}
               {editedReceipt?.tax_amount !== undefined && (
                 <div>
-                  <p className="font-medium">Additional Tax Amount</p>
+                  <p className="font-medium">{t.additionalTax}</p>
                   {isEditing ? (
                     <input
                       type="number"
@@ -396,7 +410,9 @@ function ReceiptDetails() {
           </div>
 
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-700 mb-2">Items</h3>
+            <h3 className="text-lg font-semibold text-gray-700 mb-2">
+              {t.itemsTitle}
+            </h3>
             <div className="grid grid-cols-1 gap-2 text-sm text-gray-600">
               {editedReceipt?.items && editedReceipt.items.length > 0 ? (
                 editedReceipt.items.map((item, i) => (
@@ -412,7 +428,7 @@ function ReceiptDetails() {
                             className="border rounded px-2 py-1 w-full mb-1 text-gray-800"
                             value={item.name || ''}
                             onChange={(e) => handleItemChange(e, i, 'name')}
-                            placeholder="Item Name"
+                            placeholder={t.itemNamePlaceholder}
                           />
                           <div className="flex gap-2">
                             <input
@@ -423,7 +439,7 @@ function ReceiptDetails() {
                               onChange={(e) =>
                                 handleItemChange(e, i, 'price', 'float')
                               }
-                              placeholder="Price"
+                              placeholder={t.pricePlaceholder}
                             />
                             <input
                               type="number"
@@ -433,7 +449,7 @@ function ReceiptDetails() {
                               onChange={(e) =>
                                 handleItemChange(e, i, 'quantity', 'integer')
                               }
-                              placeholder="Quantity"
+                              placeholder={t.quantityPlaceholder}
                             />
                           </div>
                         </>
@@ -444,7 +460,7 @@ function ReceiptDetails() {
                           </p>
                           <p className="text-gray-600">
                             {formatCurrency(resolveUnitPrice(item), currency)}
-                            , Qty: {item.quantity || 1}
+                            , {t.qtyLabel(item.quantity || 1)}
                           </p>
                         </div>
                       )}
@@ -461,7 +477,7 @@ function ReceiptDetails() {
                   </div>
                 ))
               ) : (
-                <p>No items found.</p>
+                <p>{t.noItemsFound}</p>
               )}
             </div>
           </div>
@@ -472,7 +488,7 @@ function ReceiptDetails() {
             onClick={() => navigate('/add_friend')}
             className="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 rounded-md w-full"
           >
-            Confirm and split
+            {t.confirmAndSplit}
           </button>
         </div>
       </div>
@@ -489,12 +505,12 @@ function ReceiptDetails() {
               id="close-confirm-title"
               className="text-lg font-semibold text-gray-900 mb-2"
             >
-              Keluar dari detail resi?
+              {t.leaveDetailsTitle}
             </h3>
             <p className="text-sm text-gray-600 mb-5 leading-relaxed">
               {hasUnsavedChanges
-                ? 'Perubahan yang belum disimpan akan hilang, dan data resi ini akan dihapus. Anda yakin ingin keluar?'
-                : 'Data resi ini akan dihapus dan Anda kembali ke halaman awal. Anda yakin ingin keluar?'}
+                ? t.leaveDetailsUnsaved
+                : t.leaveDetailsSaved}
             </p>
             <div className="flex gap-3">
               <button
@@ -502,14 +518,14 @@ function ReceiptDetails() {
                 onClick={handleCancelClose}
                 className="flex-1 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50"
               >
-                Batal
+                {t.cancel}
               </button>
               <button
                 type="button"
                 onClick={handleConfirmClose}
                 className="flex-1 py-2.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-semibold"
               >
-                Ya, keluar
+                {t.confirmLeave}
               </button>
             </div>
           </div>

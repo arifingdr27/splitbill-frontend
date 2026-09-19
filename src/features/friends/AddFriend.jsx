@@ -7,11 +7,14 @@ import {
   removeFriend,
   setFriends,
 } from './friendsSlice';
+import { getUiLabels } from '../../lib/pdfLabels';
 
 function AddFriends() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const friends = useSelector((state) => state.friends.friends);
+  const uiLanguage = useSelector((state) => state.ui.language);
+  const t = getUiLabels(uiLanguage);
 
   useEffect(() => {
     if (friends.length === 0) {
@@ -38,7 +41,7 @@ function AddFriends() {
     if (friends.length > 2) {
       dispatch(removeFriend(idToRemove));
     } else {
-      alert('Minimal harus ada dua teman.');
+      alert(t.minTwoFriends);
     }
   };
 
@@ -46,7 +49,7 @@ function AddFriends() {
     const addedFriends = friends.filter((friend) => friend.name.trim() !== '');
 
     if (addedFriends.length === 0) {
-      alert('Harap masukkan setidaknya satu nama teman.');
+      alert(t.enterAtLeastOneFriend);
       return;
     }
 
@@ -54,7 +57,7 @@ function AddFriends() {
       addedFriends.map((f) => f.name.trim().toLowerCase())
     );
     if (uniqueFriendNames.size !== addedFriends.length) {
-      alert('Terdapat nama teman yang sama. Harap gunakan nama yang unik.');
+      alert(t.duplicateFriendNames);
       return;
     }
 
@@ -81,7 +84,9 @@ function AddFriends() {
               />
             </svg>
           </button>
-          <h1 className="text-xl font-semibold text-gray-800">Add friends</h1>
+          <h1 className="text-xl font-semibold text-gray-800">
+            {t.addFriendsTitle}
+          </h1>
         </div>
 
         <div className="flex flex-col items-center py-4 overflow-y-auto max-h-[17rem] md:max-h-80">
@@ -89,7 +94,7 @@ function AddFriends() {
             <div key={friend.id} className="relative w-full mb-4">
               <input
                 type="text"
-                placeholder="Name"
+                placeholder={t.namePlaceholder}
                 value={friend.name}
                 onChange={(e) => handleNameChange(friend.id, e)}
                 className="w-full p-3 pl-4 pr-20 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-brown-500 placeholder-gray-500 text-gray-800"
@@ -100,7 +105,7 @@ function AddFriends() {
                   <button
                     onClick={() => removeFriendInput(friend.id)}
                     className="text-gray-500 hover:text-red-500 mr-2"
-                    aria-label="Remove friend"
+                    aria-label={t.removeFriend}
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -141,14 +146,14 @@ function AddFriends() {
             className="w-full py-3 mt-4 text-center text-gray-700 font-semibold border border-gray-300 rounded-lg hover:bg-gray-100"
             style={{ borderColor: '#D9D9D9' }}
           >
-            Add another friend
+            {t.addAnotherFriend}
           </button>
           <button
             onClick={handleDone}
             className="w-full py-3 rounded-lg font-semibold text-white"
             style={{ backgroundColor: '#A08F7B' }}
           >
-            Done
+            {t.done}
           </button>
         </div>
       </div>

@@ -14,8 +14,8 @@ import {
   formatCurrency,
   getReceiptCurrency,
 } from '../../lib/formatCurrency';
-import { getReceiptLanguageCode } from '../../lib/receiptLanguage';
 import { downloadSplitCompletePdf } from '../../lib/exportSplitPdf';
+import { getSplitCompleteLabels } from '../../lib/pdfLabels';
 
 function WalletIcon({ className = 'h-6 w-6' }) {
   return (
@@ -41,18 +41,19 @@ function SplitCompletePage() {
   const dispatch = useDispatch();
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
-  const [exportError, setExportError] = useState('');
+  const [exportFailed, setExportFailed] = useState(false);
 
   const { receiptData } = useSelector((state) => state.receipt);
   const friends = useSelector((state) => state.friends.friends);
   const { personAssignments } = useSelector((state) => state.splitBill);
+  const uiLanguage = useSelector((state) => state.ui.language);
 
   const allOriginalItems = normalizeReceiptItems(receiptData);
   const fees = getGlobalFees(receiptData);
   const totalReceiptSubtotal = calculateAssignableGrandTotal(allOriginalItems);
   const sharedTotal = getSharedItemsTotal(allOriginalItems);
   const currency = getReceiptCurrency(receiptData);
-  const languageCode = getReceiptLanguageCode(receiptData);
+  const t = getSplitCompleteLabels(uiLanguage);
 
   const participants = friends.map((friend) => ({
     id: friend.id,
@@ -111,13 +112,13 @@ function SplitCompletePage() {
   const handleExportPdf = async () => {
     if (participants.length === 0 || exportingPdf) return;
     setExportingPdf(true);
-    setExportError('');
+    setExportFailed(false);
     try {
       const storeName =
         receiptData?.store_information?.store_name || 'split-bill';
       await downloadSplitCompletePdf({
         storeName,
-        languageCode,
+        languageCode: uiLanguage,
         grandTotalLabel: formatCurrency(grandTotalAssigned, currency),
         participants: participants.map((participant, personIndex) => {
           const breakdown = getBreakdown(participant, personIndex);
@@ -182,7 +183,7 @@ function SplitCompletePage() {
       });
     } catch (error) {
       console.error('Failed to export PDF', error);
-      setExportError('Gagal export PDF. Coba lagi.');
+      setExportFailed(true);
     } finally {
       setExportingPdf(false);
     }
@@ -196,7 +197,7 @@ function SplitCompletePage() {
       <div className="bg-white rounded-lg shadow-md w-full max-w-xs md:max-w-sm p-4 flex flex-col h-full max-h-[95vh]">
         <div className="flex justify-between items-center pb-4 flex-none">
           <span className="text-xl font-semibold text-gray-800 mx-auto">
-            Split Complete
+            {t.title}
           </span>
           <button
             type="button"
@@ -224,17 +225,15 @@ function SplitCompletePage() {
           <div className="mb-6">
             <div className="flex items-center text-gray-800 font-semibold mb-2">
               <WalletIcon className="h-6 w-6 mr-2 text-gray-600" />
-              <p className="text-lg">Total</p>
+              <p className="text-lg">{t.total}</p>
             </div>
             <p className="text-sm text-gray-600 ml-8">
-              You paid: {formatCurrency(grandTotalAssigned, currency)}
+              {t.youPaid}: {formatCurrency(grandTotalAssigned, currency)}
             </p>
           </div>
 
           {participants.length === 0 ? (
-            <p className="p-4 text-center text-gray-500">
-              No participants found or items assigned.
-            </p>
+            <p className="p-4 text-center text-gray-500">{t.noParticipants}</p>
           ) : (
             participants.map((participant, personIndex) => {
               const breakdown = getBreakdown(participant, personIndex);
@@ -253,7 +252,7 @@ function SplitCompletePage() {
                   <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
                     <div className="flex items-center text-gray-800 font-semibold mb-2">
                       <WalletIcon className="h-5 w-5 mr-2 text-gray-600" />
-                      <p className="text-md">Total</p>
+                      <p className="text-md">{t.total}</p>
                       <span className="ml-auto font-bold">
                         {formatCurrency(breakdown.totalOwed, currency)}
                       </span>
@@ -286,14 +285,14 @@ function SplitCompletePage() {
 
                     <ul className="list-none p-0 mt-3 border-t border-gray-200 pt-3 text-sm text-gray-600">
                       <li className="flex justify-between mb-1">
-                        <span>Subtotal</span>
+                        <span>{t.subtotal}</span>
                         <span>
                           {formatCurrency(breakdown.subtotal, currency)}
                         </span>
                       </li>
                       {fees.discount > 0 && breakdown.discount > 0 && (
                         <li className="flex justify-between mb-1 text-red-500 font-semibold">
-                          <span>Discount</span>
+                          <span>{t.discount}</span>
                           <span>
                             -{formatCurrency(breakdown.discount, currency)}
                           </span>
@@ -301,7 +300,7 @@ function SplitCompletePage() {
                       )}
                       {breakdown.taxAndServiceCharge > 0 && (
                         <li className="flex justify-between mb-1">
-                          <span>Tax & Service Charge</span>
+                          <span>{t.taxAndService}</span>
                           <span>
                             {formatCurrency(
                               breakdown.taxAndServiceCharge,
@@ -312,7 +311,7 @@ function SplitCompletePage() {
                       )}
                       {breakdown.sharedCost > 0 && (
                         <li className="flex justify-between mb-1">
-                          <span>Biaya bersama</span>
+                          <span>{t.sharedCost}</span>
                           <span>
                             {formatCurrency(breakdown.sharedCost, currency)}
                           </span>
@@ -320,7 +319,7 @@ function SplitCompletePage() {
                       )}
                       {participant.additionalFees > 0 && (
                         <li className="flex justify-between mb-1">
-                          <span>Other Fees</span>
+                          <span>{t.otherFees}</span>
                           <span>
                             {formatCurrency(
                               participant.additionalFees,
@@ -338,8 +337,8 @@ function SplitCompletePage() {
         </div>
 
         <div className="pt-4 flex-none space-y-2">
-          {exportError ? (
-            <p className="text-sm text-red-500 text-center">{exportError}</p>
+          {exportFailed ? (
+            <p className="text-sm text-red-500 text-center">{t.exportError}</p>
           ) : null}
           <button
             type="button"
@@ -347,7 +346,7 @@ function SplitCompletePage() {
             onClick={handleExportPdf}
             disabled={participants.length === 0 || exportingPdf}
           >
-            {exportingPdf ? 'Menyiapkan PDF...' : 'Export PDF'}
+            {exportingPdf ? t.preparingPdf : t.exportPdf}
           </button>
           <button
             type="button"
@@ -355,7 +354,7 @@ function SplitCompletePage() {
             style={{ backgroundColor: '#ED8936' }}
             onClick={handleStartNewBill}
           >
-            Start a new bill
+            {t.startNewBill}
           </button>
         </div>
       </div>
@@ -372,11 +371,10 @@ function SplitCompletePage() {
               id="finish-confirm-title"
               className="text-lg font-semibold text-gray-900 mb-2"
             >
-              Selesai membagi tagihan?
+              {t.finishConfirmTitle}
             </h3>
             <p className="text-sm text-gray-600 mb-5 leading-relaxed">
-              Export PDF dulu ya, biar catatan pembagiannya tidak hilang.
-              Kalau lanjut, data ini akan terhapus.
+              {t.finishConfirmBody}
             </p>
             <div className="flex flex-col gap-2 mb-3">
               <button
@@ -385,7 +383,7 @@ function SplitCompletePage() {
                 disabled={participants.length === 0 || exportingPdf}
                 className="w-full py-2.5 rounded-lg border border-orange-400 text-orange-600 font-semibold hover:bg-orange-50 disabled:opacity-50"
               >
-                {exportingPdf ? 'Menyiapkan PDF...' : 'Export PDF sekarang'}
+                {exportingPdf ? t.preparingPdf : t.exportPdfNow}
               </button>
             </div>
             <div className="flex gap-3">
@@ -394,14 +392,14 @@ function SplitCompletePage() {
                 onClick={handleCancelFinish}
                 className="flex-1 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50"
               >
-                Belum
+                {t.notYet}
               </button>
               <button
                 type="button"
                 onClick={handleConfirmFinish}
                 className="flex-1 py-2.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-semibold"
               >
-                Ya, buat baru
+                {t.confirmNewBill}
               </button>
             </div>
           </div>

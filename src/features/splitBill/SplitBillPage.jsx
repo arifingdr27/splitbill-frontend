@@ -19,6 +19,7 @@ import {
   getReceiptCurrency,
 } from '../../lib/formatCurrency';
 import { cloneReceipt } from '../../lib/receiptEdit';
+import { getUiLabels } from '../../lib/pdfLabels';
 
 function PeopleIcon({ className = 'h-4 w-4' }) {
   return (
@@ -90,6 +91,8 @@ function SplitBillPage() {
   const { activePersonId, personAssignments } = useSelector(
     (state) => state.splitBill
   );
+  const uiLanguage = useSelector((state) => state.ui.language);
+  const t = getUiLabels(uiLanguage);
 
   const items = normalizeReceiptItems(receiptData);
   const assignableItems = getAssignableItems(items);
@@ -132,8 +135,7 @@ function SplitBillPage() {
   useEffect(() => {
     const handleBeforeUnload = (event) => {
       if (!isFullyAssigned) {
-        const message =
-          'Anda memiliki item yang belum dibagi. Apakah Anda yakin ingin meninggalkan halaman ini?';
+        const message = t.leaveSplitWarning;
         event.returnValue = message;
         return message;
       }
@@ -142,11 +144,11 @@ function SplitBillPage() {
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [isFullyAssigned]);
+  }, [isFullyAssigned, t.leaveSplitWarning]);
 
   const handleAssignItem = (itemId, change) => {
     if (!activePersonId) {
-      alert('Silakan pilih orang yang akan mengassign item terlebih dahulu.');
+      alert(t.selectPersonFirst);
       return;
     }
 
@@ -171,15 +173,11 @@ function SplitBillPage() {
       newAssignedQtyForPerson >
         currentAssignedQtyForPerson + currentRemainingQuantityGlobally
     ) {
-      alert(
-        `Kuantitas yang tersedia untuk ${item.name} hanya ${currentRemainingQuantityGlobally}.`
-      );
+      alert(t.availableQtyOnly(item.name, currentRemainingQuantityGlobally));
       return;
     }
     if (newAssignedQtyForPerson > item.originalQuantity) {
-      alert(
-        `Kuantitas total untuk ${item.name} hanya ${item.originalQuantity}.`
-      );
+      alert(t.totalQtyOnly(item.name, item.originalQuantity));
       return;
     }
 
@@ -230,9 +228,7 @@ function SplitBillPage() {
 
   const handleSplitConfirm = () => {
     if (!isFullyAssigned) {
-      alert(
-        'Belum semua item dibagi habis atau ada kelebihan pembagian. Pastikan total assigned sama dengan grand total.'
-      );
+      alert(t.notFullyAssigned);
       return;
     }
     navigate('/split_complete');
@@ -265,7 +261,7 @@ function SplitBillPage() {
             </svg>
           </button>
           <span className="text-xl font-semibold text-gray-800 mx-auto">
-            Split bill
+            {t.splitBillTitle}
           </span>
           <div className="w-6 h-6"></div>
         </div>
@@ -275,20 +271,22 @@ function SplitBillPage() {
             {originalImageUrl && (
               <img
                 src={originalImageUrl}
-                alt="Receipt"
+                alt={t.receiptAlt}
                 className="w-full h-auto object-cover rounded-md shadow-sm max-h-48"
               />
             )}
             {!originalImageUrl && (
               <div className="w-full h-32 bg-gray-200 flex items-center justify-center text-gray-500 rounded-md">
-                No Receipt Image
+                {t.noReceiptImage}
               </div>
             )}
           </div>
 
           <div className="mb-4">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold text-gray-800">Items</h2>
+              <h2 className="text-lg font-semibold text-gray-800">
+                {t.itemsTitle}
+              </h2>
               <button
                 type="button"
                 onClick={() => setShowSharedHelp((open) => !open)}
@@ -297,7 +295,7 @@ function SplitBillPage() {
                 aria-controls="shared-help-panel"
               >
                 <PeopleIcon className="h-4 w-4" />
-                <span>Bagi bareng</span>
+                <span>{t.shareTogether}</span>
                 <InfoIcon className="h-3.5 w-3.5" />
               </button>
             </div>
@@ -312,11 +310,12 @@ function SplitBillPage() {
                   <span className="text-base font-semibold">→</span>
                   <PeopleIcon className="h-5 w-5" />
                   <span className="text-base font-semibold">=</span>
-                  <span className="text-sm font-semibold">Rp rata</span>
+                  <span className="text-sm font-semibold">
+                    {t.equalSplitHint}
+                  </span>
                 </div>
                 <p className="text-xs text-orange-900 text-center leading-relaxed">
-                  Item seperti kantong plastik bisa dibayar bareng.
-                  Tekan ikon orang di item, biayanya dibagi rata ke semua.
+                  {t.shareTogetherHelp}
                 </p>
               </div>
             )}
@@ -325,8 +324,8 @@ function SplitBillPage() {
               {assignableItems.length === 0 ? (
                 <p className="p-4 text-center text-gray-500">
                   {sharedItems.length > 0
-                    ? 'Semua item sudah jadi biaya bersama.'
-                    : 'No items found in the receipt.'}
+                    ? t.allItemsShared
+                    : t.noItemsInReceipt}
                 </p>
               ) : (
                 assignableItems.map((item) => {
@@ -347,14 +346,15 @@ function SplitBillPage() {
                       <div className="flex-grow pr-2">
                         <p className="text-gray-700 font-medium">{item.name}</p>
                         <p className="text-sm text-gray-500">
-                          {item.originalQuantity} item
-                          {item.originalQuantity > 1 ? 's' : ''},{' '}
+                          {t.itemCount(item.originalQuantity)},{' '}
                           {formatCurrency(item.price || 0, currency)}
                         </p>
                         {currentRemainingQuantity < item.originalQuantity && (
                           <p className="text-xs text-blue-500">
-                            ({item.originalQuantity - currentRemainingQuantity}{' '}
-                            assigned, {currentRemainingQuantity} remaining)
+                            {t.assignedRemaining(
+                              item.originalQuantity - currentRemainingQuantity,
+                              currentRemainingQuantity
+                            )}
                           </p>
                         )}
                       </div>
@@ -363,8 +363,8 @@ function SplitBillPage() {
                           type="button"
                           onClick={() => handleToggleSharedOnSplit(item.id)}
                           className="w-8 h-8 flex items-center justify-center rounded-full border border-orange-300 text-orange-600 hover:bg-orange-50"
-                          title="Bagi bareng: biaya dibagi rata ke semua orang"
-                          aria-label={`Jadikan ${item.name} bagi bareng`}
+                          title={t.shareTogetherTitle}
+                          aria-label={t.makeSharedAria(item.name)}
                         >
                           <PeopleIcon className="h-4 w-4" />
                         </button>
@@ -401,10 +401,10 @@ function SplitBillPage() {
             <div className="mb-4">
               <h2 className="text-lg font-semibold text-gray-800 mb-1 flex items-center gap-2">
                 <PeopleIcon className="h-5 w-5 text-orange-600" />
-                Biaya bersama
+                {t.sharedCost}
               </h2>
               <p className="text-xs text-gray-500 mb-3">
-                Dibagi rata ke semua orang
+                {t.splitEvenlyAmongAll}
               </p>
               <div className="bg-white rounded-lg shadow-sm">
                 {sharedItems.map((item) => (
@@ -427,15 +427,18 @@ function SplitBillPage() {
                         onClick={() => handleToggleSharedOnSplit(item.id)}
                         className="text-xs text-gray-500 hover:text-gray-700 font-medium"
                       >
-                        Batalkan
+                        {t.undoShare}
                       </button>
                     </div>
                   </div>
                 ))}
                 <div className="px-4 py-3 bg-orange-50 text-sm text-orange-800">
                   {personCount > 0
-                    ? `Dibagi rata ke ${personCount} orang · ${formatCurrency(sharedPerPerson, currency)}/orang`
-                    : 'Tambah teman dulu untuk membagi biaya ini.'}
+                    ? t.splitAmongPeople(
+                        personCount,
+                        formatCurrency(sharedPerPerson, currency)
+                      )
+                    : t.addFriendsToShare}
                 </div>
               </div>
             </div>
@@ -443,11 +446,13 @@ function SplitBillPage() {
 
           <div className="mb-4">
             <h2 className="text-lg font-semibold text-gray-800 mb-3">
-              Who&apos;s splitting?
+              {t.whosSplitting}
             </h2>
             <div className="bg-white rounded-lg shadow-sm">
               {peopleWithAssignments.length === 0 ? (
-                <p className="p-4 text-center text-gray-500">No friends added.</p>
+                <p className="p-4 text-center text-gray-500">
+                  {t.noFriendsAdded}
+                </p>
               ) : (
                 peopleWithAssignments.map((person) => (
                   <div
@@ -500,27 +505,29 @@ function SplitBillPage() {
 
         <div className="p-4 bg-white rounded-b-lg shadow-sm flex-none">
           <div className="flex justify-between items-center mb-4">
-            <p className="text-gray-800 text-lg font-semibold">Total item:</p>
+            <p className="text-gray-800 text-lg font-semibold">
+              {t.totalItemsLabel}
+            </p>
             <p className="text-gray-800 text-lg font-semibold">
               {formatCurrency(grandTotal, currency)}
             </p>
           </div>
           {sharedTotal > 0 && (
             <div className="flex justify-between items-center mb-4">
-              <p className="text-gray-600 text-sm">Biaya bersama:</p>
+              <p className="text-gray-600 text-sm">{t.sharedCost}:</p>
               <p className="text-gray-600 text-sm">
                 {formatCurrency(sharedTotal, currency)}
               </p>
             </div>
           )}
           <div className="flex justify-between items-center mb-4">
-            <p className="text-gray-600 text-sm">Assigned:</p>
+            <p className="text-gray-600 text-sm">{t.assignedLabel}</p>
             <p className="text-gray-600 text-sm">
               {formatCurrency(totalAssignedByEveryone, currency)}
             </p>
           </div>
           <div className="flex justify-between items-center mb-4">
-            <p className="text-gray-600 text-sm">Remaining:</p>
+            <p className="text-gray-600 text-sm">{t.remainingLabel}</p>
             <p
               className={`text-sm font-semibold ${isFullyAssigned ? 'text-green-600' : 'text-red-600'}`}
             >
@@ -533,7 +540,7 @@ function SplitBillPage() {
               className="flex-1 px-6 py-3 rounded-lg font-semibold text-white bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={!isFullyAssigned}
             >
-              Split and Charge
+              {t.splitAndCharge}
             </button>
           </div>
         </div>

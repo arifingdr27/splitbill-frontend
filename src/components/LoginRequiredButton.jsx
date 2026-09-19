@@ -1,11 +1,10 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
-
-const DEFAULT_MESSAGE =
-  'Login Google dulu sebelum menggunakan aplikasi.';
+import { useSelector } from 'react-redux';
+import { getUiLabels } from '../lib/pdfLabels';
 
 function LoginRequiredButton({
   locked,
-  message = DEFAULT_MESSAGE,
+  message,
   className = '',
   disabled = false,
   onClick,
@@ -16,6 +15,8 @@ function LoginRequiredButton({
   const [showTip, setShowTip] = useState(false);
   const tipId = useId();
   const hideTimer = useRef(null);
+  const uiLanguage = useSelector((state) => state.ui?.language);
+  const tipMessage = message || getUiLabels(uiLanguage).loginRequired;
 
   useEffect(() => {
     return () => {
@@ -75,7 +76,7 @@ function LoginRequiredButton({
           role="tooltip"
           className="pointer-events-none absolute left-1/2 bottom-full z-20 mb-2 w-max max-w-[min(100%,18rem)] -translate-x-1/2 rounded-md bg-gray-900 px-3 py-2 text-center text-xs font-medium text-white shadow-lg"
         >
-          {message}
+          {tipMessage}
           <span
             className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-gray-900"
             aria-hidden="true"
