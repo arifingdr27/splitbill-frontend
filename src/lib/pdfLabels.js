@@ -49,6 +49,8 @@ const LABELS = {
     itemCountPayment: (count, paymentLabel) =>
       `${count} item, Pembayaran: ${paymentLabel}`,
     uploadedReceiptAlt: 'Resi terunggah',
+    tapToEnlarge: 'Ketuk untuk memperbesar',
+    closePreview: 'Tutup pratinjau',
     detailsSection: 'Detail',
     shopName: 'Nama toko',
     shopAddress: 'Alamat toko',
@@ -191,6 +193,8 @@ const LABELS = {
     itemCountPayment: (count, paymentLabel) =>
       `${count} item${count !== 1 ? 's' : ''}, Payment: ${paymentLabel}`,
     uploadedReceiptAlt: 'Uploaded Receipt',
+    tapToEnlarge: 'Tap to enlarge',
+    closePreview: 'Close preview',
     detailsSection: 'Details',
     shopName: 'Shop Name',
     shopAddress: 'Shop Address',

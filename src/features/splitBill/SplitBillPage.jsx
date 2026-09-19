@@ -20,6 +20,7 @@ import {
 } from '../../lib/formatCurrency';
 import { cloneReceipt } from '../../lib/receiptEdit';
 import { getUiLabels } from '../../lib/pdfLabels';
+import ImageLightbox from '../../components/ImageLightbox';
 
 function PeopleIcon({ className = 'h-4 w-4' }) {
   return (
@@ -85,6 +86,7 @@ function SplitBillPage() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const [showSharedHelp, setShowSharedHelp] = useState(false);
+  const [previewImage, setPreviewImage] = useState(null);
 
   const { receiptData, originalImageUrl } = useSelector((state) => state.receipt);
   const friends = useSelector((state) => state.friends.friends);
@@ -269,11 +271,18 @@ function SplitBillPage() {
         <div className="flex-grow overflow-y-auto p-4">
           <div className="mb-4 bg-white overflow-hidden flex justify-center items-center">
             {originalImageUrl && (
-              <img
-                src={originalImageUrl}
-                alt={t.receiptAlt}
-                className="w-full h-auto object-cover rounded-md shadow-sm max-h-48"
-              />
+              <button
+                type="button"
+                onClick={() => setPreviewImage(originalImageUrl)}
+                className="block w-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 rounded-md"
+                aria-label={t.tapToEnlarge}
+              >
+                <img
+                  src={originalImageUrl}
+                  alt={t.receiptAlt}
+                  className="w-full h-auto object-cover rounded-md shadow-sm max-h-48"
+                />
+              </button>
             )}
             {!originalImageUrl && (
               <div className="w-full h-32 bg-gray-200 flex items-center justify-center text-gray-500 rounded-md">
@@ -545,6 +554,13 @@ function SplitBillPage() {
           </div>
         </div>
       </div>
+
+      <ImageLightbox
+        src={previewImage}
+        alt={t.receiptAlt}
+        closeLabel={t.closePreview}
+        onClose={() => setPreviewImage(null)}
+      />
     </div>
   );
 }

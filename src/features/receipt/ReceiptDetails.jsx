@@ -18,6 +18,7 @@ import {
 } from '../../lib/formatCurrency';
 import { resolveUnitPrice } from '../../lib/splitMath';
 import { getUiLabels } from '../../lib/pdfLabels';
+import ImageLightbox from '../../components/ImageLightbox';
 
 function ReceiptDetails() {
   const navigate = useNavigate();
@@ -34,6 +35,7 @@ function ReceiptDetails() {
   const [originalTaxForDisplay, setOriginalTaxForDisplay] = useState(0);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [previewImage, setPreviewImage] = useState(null);
 
   useEffect(() => {
     if (receiptData) {
@@ -226,11 +228,24 @@ function ReceiptDetails() {
               )}
             </p>
             <div className="rounded-md overflow-hidden shadow-sm">
-              <img
-                src={originalImageUrl || displayedReceipt.image_url}
-                alt={t.uploadedReceiptAlt}
-                className="w-full h-auto object-cover"
-              />
+              {(originalImageUrl || displayedReceipt.image_url) && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPreviewImage(
+                      originalImageUrl || displayedReceipt.image_url
+                    )
+                  }
+                  className="block w-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                  aria-label={t.tapToEnlarge}
+                >
+                  <img
+                    src={originalImageUrl || displayedReceipt.image_url}
+                    alt={t.uploadedReceiptAlt}
+                    className="w-full h-auto object-cover"
+                  />
+                </button>
+              )}
             </div>
           </div>
 
@@ -531,6 +546,13 @@ function ReceiptDetails() {
           </div>
         </div>
       )}
+
+      <ImageLightbox
+        src={previewImage}
+        alt={t.uploadedReceiptAlt}
+        closeLabel={t.closePreview}
+        onClose={() => setPreviewImage(null)}
+      />
     </div>
   );
 }
