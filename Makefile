@@ -1,4 +1,4 @@
-.PHONY: help install dev build lint preview clean docker-build docker-up docker-down docker-logs
+.PHONY: help install dev build lint preview clean docker-build docker-up docker-down docker-logs restart
 
 PORT ?= 8082
 
@@ -34,3 +34,7 @@ docker-down: ## Stop Docker Compose services
 
 docker-logs: ## Tail Docker Compose logs
 	docker compose logs -f
+
+restart: ## Restart app (down + rebuild + up)
+	docker compose down
+	docker compose up -d --build
