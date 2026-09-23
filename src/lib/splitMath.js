@@ -1,4 +1,5 @@
 import { parseMoneyAmount } from './formatCurrency';
+import { getServiceCharge } from './receiptEdit';
 
 const SHARED_NAME_PATTERN =
   /kantong|plastik|bungkus|ongkir|delivery|packing|kemasan|takeaway|take[\s-]?away|tas\b/i;
@@ -144,7 +145,7 @@ export function calculateTotalAssigned(personAssignments, items) {
 export function getGlobalFees(receiptData) {
   return {
     discount: parseMoneyAmount(receiptData?.totals?.discount),
-    serviceCharge: parseMoneyAmount(receiptData?.service_charge),
+    serviceCharge: getServiceCharge(receiptData),
     tax:
       parseMoneyAmount(receiptData?.totals?.tax?.amount) ||
       parseMoneyAmount(receiptData?.totals?.tax?.total_tax) ||

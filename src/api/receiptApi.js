@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { OCR_URL, authHeaders, clearToken } from './client';
+import { normalizeReceiptResponse } from '../lib/receiptEdit';
 
 export async function uploadReceiptImage(imageBlob) {
   const formData = new FormData();
@@ -12,7 +13,7 @@ export async function uploadReceiptImage(imageBlob) {
     },
   });
 
-  return response.data;
+  return normalizeReceiptResponse(response.data);
 }
 
 export function getUploadErrorMessage(error) {

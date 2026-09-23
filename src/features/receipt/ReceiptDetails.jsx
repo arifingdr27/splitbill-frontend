@@ -8,6 +8,7 @@ import {
   parseFieldValue,
   setValueAtPath,
   getTaxAmount,
+  getServiceCharge,
   applyTaxDppRule,
   getDppForTotalDisplay,
 } from '../../lib/receiptEdit';
@@ -392,7 +393,8 @@ function ReceiptDetails() {
                   </p>
                 )}
               </div>
-              {editedReceipt?.service_charge !== undefined && (
+              {(editedReceipt?.service_charge !== undefined ||
+                editedReceipt?.totals?.tax?.service_charge !== undefined) && (
                 <div>
                   <p className="font-medium">{t.serviceCharge}</p>
                   {isEditing ? (
@@ -400,7 +402,7 @@ function ReceiptDetails() {
                       type="number"
                       step="0.01"
                       className="border rounded px-2 py-1 w-full text-gray-800"
-                      value={editedReceipt?.service_charge || 0}
+                      value={getServiceCharge(editedReceipt)}
                       onChange={(e) =>
                         handleInputChange(e, 'service_charge', 'float')
                       }
@@ -408,7 +410,7 @@ function ReceiptDetails() {
                   ) : (
                     <p className="text-gray-800">
                       {formatCurrency(
-                        parseMoneyAmount(displayedReceipt.service_charge),
+                        getServiceCharge(displayedReceipt),
                         currency
                       )}
                     </p>
