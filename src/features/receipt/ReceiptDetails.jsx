@@ -9,6 +9,9 @@ import {
   setValueAtPath,
   getTaxAmount,
   getServiceCharge,
+  getFees,
+  sumFees,
+  syncLegacyTotalsFromFees,
   applyTaxDppRule,
   getDppForTotalDisplay,
 } from '../../lib/receiptEdit';
@@ -20,6 +23,22 @@ import {
 import { resolveUnitPrice } from '../../lib/splitMath';
 import { getUiLabels } from '../../lib/pdfLabels';
 import ImageLightbox from '../../components/ImageLightbox';
+
+function feeTypeLabel(fee, t) {
+  if (fee?.name) return fee.name;
+  switch (fee?.type) {
+    case 'service_charge':
+      return t.serviceCharge;
+    case 'tax':
+      return t.tax;
+    case 'tip':
+      return t.tip;
+    case 'fee':
+      return t.fee;
+    default:
+      return t.other;
+  }
+}
 
 function ReceiptDetails() {
   const navigate = useNavigate();
@@ -129,12 +148,31 @@ function ReceiptDetails() {
     });
   };
 
-  const handleSave = () => {
-    const currentTaxInEditedReceipt = getTaxAmount(editedReceipt);
-    setOriginalTaxForDisplay(currentTaxInEditedReceipt);
+  const handleFeeAmountChange = (e, feeIndex) => {
+    const value = parseFieldValue(e.target.value, 'float');
+    setEditedReceipt((prevReceipt) => {
+      const next = cloneReceipt(prevReceipt || DEFAULT_RECEIPT);
+      if (!next.totals) next.totals = {};
+      if (!Array.isArray(next.totals.fees) || next.totals.fees.length === 0) {
+        next.totals.fees = getFees(next);
+      }
+      if (!next.totals.fees[feeIndex]) return next;
+      next.totals.fees[feeIndex] = {
+        ...next.totals.fees[feeIndex],
+        amount: value,
+      };
+      return next;
+    });
+  };
 
-    const { receipt: finalEditedReceipt, didResetTax } =
-      applyTaxDppRule(editedReceipt);
+  const handleSave = () => {
+    const synced = syncLegacyTotalsFromFees(editedReceipt);
+    setOriginalTaxForDisplay(sumFees(getFees(synced), ['tax']));
+
+    const { receipt: afterDpp, didResetTax } = applyTaxDppRule(synced);
+    const finalEditedReceipt = didResetTax
+      ? syncLegacyTotalsFromFees(afterDpp)
+      : afterDpp;
 
     if (didResetTax) {
       alert(t.taxResetAlert);
@@ -369,77 +407,111 @@ function ReceiptDetails() {
                   </p>
                 )}
               </div>
-              <div>
-                <p className="font-medium">{t.tax}</p>
-                {isEditing ? (
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="border rounded px-2 py-1 w-full text-gray-800"
-                    value={
-                      editedReceipt?.totals?.tax?.amount === ''
-                        ? ''
-                        : editedReceipt?.totals?.tax?.amount === 0
-                          ? 0
-                          : getTaxAmount(editedReceipt)
-                    }
-                    onChange={(e) =>
-                      handleInputChange(e, 'totals.tax.amount', 'float')
-                    }
-                  />
-                ) : (
-                  <p className="text-gray-800">
-                    {formatCurrency(originalTaxForDisplay, currency)}
-                  </p>
-                )}
-              </div>
-              {(editedReceipt?.service_charge !== undefined ||
-                editedReceipt?.totals?.tax?.service_charge !== undefined) && (
-                <div>
-                  <p className="font-medium">{t.serviceCharge}</p>
-                  {isEditing ? (
-                    <input
-                      type="number"
-                      step="0.01"
-                      className="border rounded px-2 py-1 w-full text-gray-800"
-                      value={getServiceCharge(editedReceipt)}
-                      onChange={(e) =>
-                        handleInputChange(e, 'service_charge', 'float')
-                      }
-                    />
-                  ) : (
-                    <p className="text-gray-800">
-                      {formatCurrency(
-                        getServiceCharge(displayedReceipt),
-                        currency
+              {(() => {
+                const receiptForFees = isEditing
+                  ? editedReceipt
+                  : displayedReceipt;
+                const feeRows = getFees(receiptForFees);
+                if (feeRows.length > 0) {
+                  return feeRows.map((fee, feeIndex) => (
+                    <div key={`fee-${fee.type}-${feeIndex}`}>
+                      <p className="font-medium">{feeTypeLabel(fee, t)}</p>
+                      {isEditing ? (
+                        <input
+                          type="number"
+                          step="0.01"
+                          className="border rounded px-2 py-1 w-full text-gray-800"
+                          value={
+                            editedReceipt?.totals?.fees?.[feeIndex]?.amount ??
+                            fee.amount
+                          }
+                          onChange={(e) => handleFeeAmountChange(e, feeIndex)}
+                        />
+                      ) : (
+                        <p className="text-gray-800">
+                          {formatCurrency(fee.amount, currency)}
+                        </p>
                       )}
-                    </p>
-                  )}
-                </div>
-              )}
-              {editedReceipt?.tax_amount !== undefined && (
-                <div>
-                  <p className="font-medium">{t.additionalTax}</p>
-                  {isEditing ? (
-                    <input
-                      type="number"
-                      step="0.01"
-                      className="border rounded px-2 py-1 w-full text-gray-800"
-                      value={editedReceipt?.tax_amount || 0}
-                      onChange={(e) =>
-                        handleInputChange(e, 'tax_amount', 'float')
-                      }
-                    />
-                  ) : (
-                    <p className="text-gray-800">
-                      {formatCurrency(
-                        parseMoneyAmount(displayedReceipt.tax_amount),
-                        currency
+                    </div>
+                  ));
+                }
+                return (
+                  <>
+                    <div>
+                      <p className="font-medium">{t.tax}</p>
+                      {isEditing ? (
+                        <input
+                          type="number"
+                          step="0.01"
+                          className="border rounded px-2 py-1 w-full text-gray-800"
+                          value={
+                            editedReceipt?.totals?.tax?.amount === ''
+                              ? ''
+                              : editedReceipt?.totals?.tax?.amount === 0
+                                ? 0
+                                : getTaxAmount(editedReceipt)
+                          }
+                          onChange={(e) =>
+                            handleInputChange(e, 'totals.tax.amount', 'float')
+                          }
+                        />
+                      ) : (
+                        <p className="text-gray-800">
+                          {formatCurrency(originalTaxForDisplay, currency)}
+                        </p>
                       )}
-                    </p>
-                  )}
-                </div>
-              )}
+                    </div>
+                    {(editedReceipt?.service_charge !== undefined ||
+                      editedReceipt?.totals?.tax?.service_charge !==
+                        undefined) && (
+                      <div>
+                        <p className="font-medium">{t.serviceCharge}</p>
+                        {isEditing ? (
+                          <input
+                            type="number"
+                            step="0.01"
+                            className="border rounded px-2 py-1 w-full text-gray-800"
+                            value={getServiceCharge(editedReceipt)}
+                            onChange={(e) =>
+                              handleInputChange(e, 'service_charge', 'float')
+                            }
+                          />
+                        ) : (
+                          <p className="text-gray-800">
+                            {formatCurrency(
+                              getServiceCharge(displayedReceipt),
+                              currency
+                            )}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {editedReceipt?.tax_amount !== undefined && (
+                      <div>
+                        <p className="font-medium">{t.additionalTax}</p>
+                        {isEditing ? (
+                          <input
+                            type="number"
+                            step="0.01"
+                            className="border rounded px-2 py-1 w-full text-gray-800"
+                            value={editedReceipt?.tax_amount || 0}
+                            onChange={(e) =>
+                              handleInputChange(e, 'tax_amount', 'float')
+                            }
+                          />
+                        ) : (
+                          <p className="text-gray-800">
+                            {formatCurrency(
+                              parseMoneyAmount(displayedReceipt.tax_amount),
+                              currency
+                            )}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           </div>
 

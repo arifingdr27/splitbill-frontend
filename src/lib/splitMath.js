@@ -1,5 +1,5 @@
 import { parseMoneyAmount } from './formatCurrency';
-import { getServiceCharge } from './receiptEdit';
+import { getFees, sumFees } from './receiptEdit';
 
 const SHARED_NAME_PATTERN =
   /kantong|plastik|bungkus|ongkir|delivery|packing|kemasan|takeaway|take[\s-]?away|tas\b/i;
@@ -143,13 +143,15 @@ export function calculateTotalAssigned(personAssignments, items) {
 }
 
 export function getGlobalFees(receiptData) {
+  const fees = getFees(receiptData);
   return {
     discount: parseMoneyAmount(receiptData?.totals?.discount),
-    serviceCharge: getServiceCharge(receiptData),
-    tax:
-      parseMoneyAmount(receiptData?.totals?.tax?.amount) ||
-      parseMoneyAmount(receiptData?.totals?.tax?.total_tax) ||
-      0,
+    fees,
+    serviceCharge: sumFees(fees, ['service_charge']),
+    tax: sumFees(fees, ['tax']),
+    tip: sumFees(fees, ['tip']),
+    otherFees: sumFees(fees, ['fee', 'other']),
+    feesTotal: sumFees(fees),
   };
 }
 
@@ -162,6 +164,19 @@ export function calculateProportionalDiscount(
   return (participantSubtotal / totalReceiptSubtotal) * globalDiscount;
 }
 
+export function calculateProportionalFee(
+  participantSubtotal,
+  discountForParticipant,
+  totalReceiptSubtotal,
+  globalDiscount,
+  feeAmount
+) {
+  const subtotalAfterDiscount = participantSubtotal - discountForParticipant;
+  const totalAfterDiscount = totalReceiptSubtotal - globalDiscount;
+  if (totalAfterDiscount <= 0) return 0;
+  return (subtotalAfterDiscount / totalAfterDiscount) * feeAmount;
+}
+
 export function calculateProportionalServiceCharge(
   participantSubtotal,
   discountForParticipant,
@@ -169,10 +184,13 @@ export function calculateProportionalServiceCharge(
   globalDiscount,
   globalServiceCharge
 ) {
-  const subtotalAfterDiscount = participantSubtotal - discountForParticipant;
-  const totalAfterDiscount = totalReceiptSubtotal - globalDiscount;
-  if (totalAfterDiscount <= 0) return 0;
-  return (subtotalAfterDiscount / totalAfterDiscount) * globalServiceCharge;
+  return calculateProportionalFee(
+    participantSubtotal,
+    discountForParticipant,
+    totalReceiptSubtotal,
+    globalDiscount,
+    globalServiceCharge
+  );
 }
 
 export function calculateProportionalTax(
@@ -208,29 +226,33 @@ export function calculateParticipantBreakdown(
     totalReceiptSubtotal,
     fees.discount
   );
-  const serviceCharge = calculateProportionalServiceCharge(
-    subtotal,
-    discount,
-    totalReceiptSubtotal,
-    fees.discount,
-    fees.serviceCharge
-  );
-  const tax = calculateProportionalTax(
-    subtotal,
-    discount,
-    serviceCharge,
-    totalReceiptSubtotal,
-    fees.discount,
-    fees.serviceCharge,
-    fees.tax
-  );
-  const totalOwed = subtotal - discount + serviceCharge + tax + sharedCost;
+  const feeList = Array.isArray(fees.fees) ? fees.fees : [];
+  const feeShares = feeList.map((fee) => ({
+    type: fee.type,
+    name: fee.name,
+    amount: calculateProportionalFee(
+      subtotal,
+      discount,
+      totalReceiptSubtotal,
+      fees.discount,
+      fee.amount
+    ),
+  }));
+  const feesTotalShare = sumFees(feeShares);
+  const serviceCharge = sumFees(feeShares, ['service_charge']);
+  const tax = sumFees(feeShares, ['tax']);
+  const tip = sumFees(feeShares, ['tip']);
+  const otherFees = sumFees(feeShares, ['fee', 'other']);
+  const totalOwed = subtotal - discount + feesTotalShare + sharedCost;
 
   return {
     subtotal,
     discount,
+    fees: feeShares,
     serviceCharge,
     tax,
+    tip,
+    otherFees,
     taxAndServiceCharge: serviceCharge + tax,
     sharedCost,
     totalOwed,

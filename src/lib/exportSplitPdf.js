@@ -89,7 +89,9 @@ export async function downloadSplitCompletePdf(payload) {
     });
   };
 
-  const resolveFeeLabel = (key) => {
+  const resolveFeeLabel = (feeRow) => {
+    if (feeRow?.label) return feeRow.label;
+    const key = feeRow?.key;
     if (typeof t[key] === 'string') return t[key];
     return key;
   };
@@ -185,7 +187,7 @@ export async function downloadSplitCompletePdf(payload) {
       y += 5;
 
       rows.forEach((feeRow) => {
-        const label = resolveFeeLabel(feeRow.key);
+        const label = resolveFeeLabel(feeRow);
         row(label, feeRow.amountLabel, {
           size: 10,
           color: feeRow.key === 'discount' ? 180 : 80,

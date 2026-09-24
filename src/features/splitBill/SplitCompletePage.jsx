@@ -148,15 +148,17 @@ function SplitCompletePage() {
               amountLabel: `-${formatCurrency(breakdown.discount, currency)}`,
             });
           }
-          if (breakdown.taxAndServiceCharge > 0) {
+          (breakdown.fees || []).forEach((fee, feeIndex) => {
+            if (!(fee.amount > 0)) return;
             rows.push({
-              key: 'taxAndService',
-              amountLabel: formatCurrency(
-                breakdown.taxAndServiceCharge,
-                currency
-              ),
+              key: fee.type || `fee-${feeIndex}`,
+              label:
+                fee.name ||
+                t[fee.type === 'service_charge' ? 'serviceCharge' : fee.type] ||
+                fee.type,
+              amountLabel: formatCurrency(fee.amount, currency),
             });
-          }
+          });
           if (breakdown.sharedCost > 0) {
             rows.push({
               key: 'sharedCost',
@@ -298,17 +300,27 @@ function SplitCompletePage() {
                           </span>
                         </li>
                       )}
-                      {breakdown.taxAndServiceCharge > 0 && (
-                        <li className="flex justify-between mb-1">
-                          <span>{t.taxAndService}</span>
-                          <span>
-                            {formatCurrency(
-                              breakdown.taxAndServiceCharge,
-                              currency
-                            )}
-                          </span>
-                        </li>
-                      )}
+                      {(breakdown.fees || [])
+                        .filter((fee) => fee.amount > 0)
+                        .map((fee, feeIndex) => (
+                          <li
+                            key={`person-fee-${fee.type}-${feeIndex}`}
+                            className="flex justify-between mb-1"
+                          >
+                            <span>
+                              {fee.name ||
+                                t[
+                                  fee.type === 'service_charge'
+                                    ? 'serviceCharge'
+                                    : fee.type
+                                ] ||
+                                fee.type}
+                            </span>
+                            <span>
+                              {formatCurrency(fee.amount, currency)}
+                            </span>
+                          </li>
+                        ))}
                       {breakdown.sharedCost > 0 && (
                         <li className="flex justify-between mb-1">
                           <span>{t.sharedCost}</span>
