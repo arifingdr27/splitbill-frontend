@@ -1,7 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { setActivePerson, assignItemToPerson } from './splitBillSlice';
+import {
+  setActivePerson,
+  assignItemToPerson,
+  setItemPot,
+  clearItemPot,
+} from './splitBillSlice';
 import { setEditedReceiptData } from '../receipt/receiptSlice';
 import {
   normalizeReceiptItems,
@@ -13,6 +18,9 @@ import {
   getSharedItems,
   getSharedItemsTotal,
   splitEvenly,
+  getPotPersonIds,
+  getPersonPotAmount,
+  getPersonPotLines,
 } from '../../lib/splitMath';
 import {
   formatCurrency,
@@ -87,17 +95,28 @@ function SplitBillPage() {
   const dispatch = useDispatch();
   const [showSharedHelp, setShowSharedHelp] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
+  const [patunganItemId, setPatunganItemId] = useState(null);
+  const [patunganSelection, setPatunganSelection] = useState([]);
 
   const { receiptData, originalImageUrl } = useSelector((state) => state.receipt);
   const friends = useSelector((state) => state.friends.friends);
-  const { activePersonId, personAssignments } = useSelector(
-    (state) => state.splitBill
-  );
+  const {
+    activePersonId,
+    personAssignments,
+    itemPots = {},
+  } = useSelector((state) => state.splitBill);
   const uiLanguage = useSelector((state) => state.ui.language);
   const t = getUiLabels(uiLanguage);
 
   const items = normalizeReceiptItems(receiptData);
-  const assignableItems = getAssignableItems(items);
+  const friendIds = friends.map((friend) => friend.id);
+  const assignableItems = getAssignableItems(items).filter(
+    (item) => getPotPersonIds(itemPots, item.id, friendIds).length < 2
+  );
+  const potItems = items.filter(
+    (item) =>
+      !item.isShared && getPotPersonIds(itemPots, item.id, friendIds).length >= 2
+  );
   const sharedItems = getSharedItems(items);
   const sharedTotal = getSharedItemsTotal(items);
   const currency = getReceiptCurrency(receiptData);
@@ -114,7 +133,9 @@ function SplitBillPage() {
   const grandTotal = calculateAssignableGrandTotal(items);
   const totalAssignedByEveryone = calculateTotalAssigned(
     personAssignments,
-    items
+    items,
+    itemPots,
+    friendIds
   );
   const remainingTotal = grandTotal - totalAssignedByEveryone;
   const isFullyAssigned =
@@ -211,6 +232,7 @@ function SplitBillPage() {
     delete target.isShared;
 
     if (nextShared) {
+      dispatch(clearItemPot(itemId));
       Object.keys(personAssignments).forEach((personId) => {
         const assignedQty = personAssignments[personId]?.[itemId] || 0;
         if (assignedQty > 0) {
@@ -226,6 +248,32 @@ function SplitBillPage() {
     }
 
     dispatch(setEditedReceiptData(nextReceipt));
+  };
+
+  const openPatungan = (itemId) => {
+    setPatunganItemId(itemId);
+    setPatunganSelection(activePersonId ? [activePersonId] : []);
+  };
+
+  const togglePatunganPerson = (personId) => {
+    setPatunganSelection((current) =>
+      current.includes(personId)
+        ? current.filter((id) => id !== personId)
+        : [...current, personId]
+    );
+  };
+
+  const applyPatungan = (itemId) => {
+    const personIds = friends
+      .map((friend) => friend.id)
+      .filter((id) => patunganSelection.includes(id));
+    if (personIds.length < 2) {
+      alert(t.patunganNeedTwo);
+      return;
+    }
+    dispatch(setItemPot({ itemId, personIds }));
+    setPatunganItemId(null);
+    setPatunganSelection([]);
   };
 
   const handleSplitConfirm = () => {
@@ -350,8 +398,9 @@ function SplitBillPage() {
                   return (
                     <div
                       key={item.id}
-                      className="flex justify-between items-center px-4 py-3 border-b last:border-b-0"
+                      className="px-4 py-3 border-b last:border-b-0"
                     >
+                      <div className="flex justify-between items-center">
                       <div className="flex-grow pr-2">
                         <p className="text-gray-700 font-medium">{item.name}</p>
                         <p className="text-sm text-gray-500">
@@ -366,6 +415,19 @@ function SplitBillPage() {
                             )}
                           </p>
                         )}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            patunganItemId === item.id
+                              ? setPatunganItemId(null)
+                              : openPatungan(item.id)
+                          }
+                          className="mt-1 text-xs font-medium text-orange-600 hover:text-orange-700"
+                          aria-expanded={patunganItemId === item.id}
+                          aria-label={t.patunganAria(item.name)}
+                        >
+                          {t.patungan}
+                        </button>
                       </div>
                       <div className="flex items-center space-x-2">
                         <button
@@ -399,12 +461,101 @@ function SplitBillPage() {
                           </>
                         )}
                       </div>
+                      </div>
+                      {patunganItemId === item.id && (
+                        <div className="mt-3 rounded-lg border border-orange-200 bg-orange-50 px-3 py-3">
+                          <p className="text-xs text-orange-900 mb-2">
+                            {t.patunganPick}
+                          </p>
+                          <div className="flex flex-wrap gap-2 mb-3">
+                            {peopleWithAssignments.map((person) => {
+                              const selected = patunganSelection.includes(person.id);
+                              return (
+                                <button
+                                  key={person.id}
+                                  type="button"
+                                  onClick={() => togglePatunganPerson(person.id)}
+                                  className={`px-2.5 py-1 rounded-full text-xs font-medium border ${
+                                    selected
+                                      ? 'bg-orange-500 border-orange-500 text-white'
+                                      : 'bg-white border-gray-300 text-gray-700'
+                                  }`}
+                                  aria-pressed={selected}
+                                >
+                                  {person.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => applyPatungan(item.id)}
+                            disabled={patunganSelection.length < 2}
+                            className="w-full py-2 rounded-lg text-sm font-semibold text-white bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {t.patunganApply}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   );
                 })
               )}
             </div>
           </div>
+
+          {potItems.length > 0 && (
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold text-gray-800 mb-1">
+                {t.patunganSection}
+              </h2>
+              <p className="text-xs text-gray-500 mb-3">{t.patunganHint}</p>
+              <div className="bg-white rounded-lg shadow-sm">
+                {potItems.map((item) => {
+                  const personIds = getPotPersonIds(itemPots, item.id, friendIds);
+                  const names = personIds
+                    .map(
+                      (personId) =>
+                        friends.find((friend) => friend.id === personId)?.name
+                    )
+                    .filter(Boolean)
+                    .join(', ');
+                  const charged =
+                    (item.originalQuantity || 0) * (item.price || 0);
+                  const perPerson =
+                    personIds.length > 0
+                      ? splitEvenly(charged, personIds.length)[0]
+                      : 0;
+                  return (
+                    <div
+                      key={item.id}
+                      className="px-4 py-3 border-b last:border-b-0"
+                    >
+                      <div className="flex justify-between items-start gap-3">
+                        <div>
+                          <p className="text-gray-700 font-medium">{item.name}</p>
+                          <p className="text-sm text-gray-500">{names}</p>
+                          <p className="text-xs text-orange-700 mt-1">
+                            {t.patunganPerPerson(
+                              personIds.length,
+                              formatCurrency(perPerson, currency)
+                            )}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => dispatch(clearItemPot(item.id))}
+                          className="text-xs text-gray-500 hover:text-gray-700 font-medium"
+                        >
+                          {t.undoShare}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {sharedItems.length > 0 && (
             <div className="mb-4">
@@ -482,14 +633,28 @@ function SplitBillPage() {
                             calculatePersonSubtotal(
                               person.assignedItems,
                               items
-                            ),
+                            ) +
+                              getPersonPotAmount(
+                                items,
+                                itemPots,
+                                person.id,
+                                friendIds
+                              ),
                             currency
                           )}
                         </p>
-                        {Object.keys(person.assignedItems).length > 0 && (
+                        {(Object.keys(person.assignedItems).length > 0 ||
+                          getPersonPotLines(items, itemPots, person.id, friendIds)
+                            .length > 0) && (
                           <div className="text-xs text-gray-400 mt-1 flex flex-wrap gap-1">
                             {Object.entries(person.assignedItems).map(
                               ([itemId, assignedQty]) => {
+                                if (
+                                  getPotPersonIds(itemPots, itemId, friendIds)
+                                    .length >= 2
+                                ) {
+                                  return null;
+                                }
                                 const item = items.find((i) => i.id === itemId);
                                 return (
                                   <span
@@ -501,6 +666,19 @@ function SplitBillPage() {
                                 );
                               }
                             )}
+                            {getPersonPotLines(
+                              items,
+                              itemPots,
+                              person.id,
+                              friendIds
+                            ).map((line) => (
+                              <span
+                                key={line.itemId}
+                                className="bg-orange-100 text-orange-800 rounded-full px-2 py-0.5"
+                              >
+                                {line.name} ({t.patunganChip})
+                              </span>
+                            ))}
                           </div>
                         )}
                       </div>

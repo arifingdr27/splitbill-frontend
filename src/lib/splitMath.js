@@ -94,6 +94,39 @@ export function getSharedCostForPerson(sharedTotal, personCount, personIndex) {
   return parts[personIndex] || 0;
 }
 
+/** People still in the bill who share this item. Empty unless at least two remain. */
+export function getPotPersonIds(itemPots, itemId, friendIds) {
+  const ids = itemPots?.[itemId];
+  if (!Array.isArray(ids)) return [];
+  const allowed = friendIds ? new Set(friendIds) : null;
+  const filtered = allowed ? ids.filter((id) => allowed.has(id)) : ids.slice();
+  return filtered.length >= 2 ? filtered : [];
+}
+
+export function getPersonPotLines(items, itemPots, personId, friendIds) {
+  const lines = [];
+  (items || []).forEach((item) => {
+    if (item.isShared) return;
+    const personIds = getPotPersonIds(itemPots, item.id, friendIds);
+    const index = personIds.indexOf(personId);
+    if (index < 0) return;
+    const charged = (item.originalQuantity || 0) * (item.price || 0);
+    lines.push({
+      itemId: item.id,
+      name: item.name,
+      amount: splitEvenly(charged, personIds.length)[index] || 0,
+    });
+  });
+  return lines;
+}
+
+export function getPersonPotAmount(items, itemPots, personId, friendIds) {
+  return getPersonPotLines(items, itemPots, personId, friendIds).reduce(
+    (sum, line) => sum + line.amount,
+    0
+  );
+}
+
 export function calculateRemainingQuantity(itemId, items, personAssignments) {
   const item = items.find((i) => i.id === itemId);
   if (!item || item.isShared) return 0;
@@ -128,10 +161,25 @@ export function calculateAssignableGrandTotal(items) {
   return calculateGrandTotal(getAssignableItems(items));
 }
 
-export function calculateTotalAssigned(personAssignments, items) {
+export function calculateTotalAssigned(
+  personAssignments,
+  items,
+  itemPots = {},
+  friendIds = null
+) {
   let totalAssigned = 0;
+  const pottedIds = new Set();
+
+  (items || []).forEach((item) => {
+    if (item.isShared) return;
+    if (getPotPersonIds(itemPots, item.id, friendIds).length < 2) return;
+    pottedIds.add(item.id);
+    totalAssigned += (item.originalQuantity || 0) * (item.price || 0);
+  });
+
   for (const personId in personAssignments) {
     for (const itemId in personAssignments[personId]) {
+      if (pottedIds.has(itemId)) continue;
       const assignedQty = personAssignments[personId][itemId];
       const item = items.find((i) => i.id === itemId);
       if (item && !item.isShared) {
@@ -215,12 +263,13 @@ export function calculateParticipantBreakdown(
   items,
   totalReceiptSubtotal,
   fees,
-  sharedCost = 0
+  sharedCost = 0,
+  potAmount = 0
 ) {
   const assignedMap = Object.fromEntries(
     assignedItemsList.map(({ itemId, quantity }) => [itemId, quantity])
   );
-  const subtotal = calculatePersonSubtotal(assignedMap, items);
+  const subtotal = calculatePersonSubtotal(assignedMap, items) + (Number(potAmount) || 0);
   const discount = calculateProportionalDiscount(
     subtotal,
     totalReceiptSubtotal,

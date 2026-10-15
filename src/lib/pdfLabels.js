@@ -106,6 +106,16 @@ const LABELS = {
     assignedRemaining: (assigned, remaining) =>
       `(${assigned} sudah dibagi, ${remaining} tersisa)`,
     shareTogetherTitle: 'Bagi bareng: biaya dibagi rata ke semua orang',
+    patungan: 'Patungan',
+    patunganAria: (name) => `Patungan ${name}`,
+    patunganPick: 'Pilih siapa yang ikut bayar item ini. Seluruh item dibagi rata.',
+    patunganNeedTwo: 'Pilih minimal 2 orang.',
+    patunganApply: 'Bagi item ini',
+    patunganSection: 'Patungan',
+    patunganHint: 'Satu item dibagi rata ke orang yang dipilih.',
+    patunganPerPerson: (count, amountLabel) =>
+      `${count} orang · ${amountLabel}/orang`,
+    patunganChip: 'patungan',
     makeSharedAria: (name) => `Jadikan ${name} bagi bareng`,
     splitEvenlyAmongAll: 'Dibagi rata ke semua orang',
     undoShare: 'Batalkan',
@@ -257,6 +267,16 @@ const LABELS = {
     assignedRemaining: (assigned, remaining) =>
       `(${assigned} assigned, ${remaining} remaining)`,
     shareTogetherTitle: 'Share together: cost split evenly among everyone',
+    patungan: 'Split item',
+    patunganAria: (name) => `Split ${name}`,
+    patunganPick: 'Choose who pays for this item. The whole item is split evenly.',
+    patunganNeedTwo: 'Pick at least 2 people.',
+    patunganApply: 'Split this item',
+    patunganSection: 'Split items',
+    patunganHint: 'One item split evenly among the people you pick.',
+    patunganPerPerson: (count, amountLabel) =>
+      `${count} people · ${amountLabel}/person`,
+    patunganChip: 'split',
     makeSharedAria: (name) => `Make ${name} shared`,
     splitEvenlyAmongAll: 'Split evenly among everyone',
     undoShare: 'Undo',

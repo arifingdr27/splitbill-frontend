@@ -9,6 +9,8 @@ import {
   calculateParticipantBreakdown,
   getSharedItemsTotal,
   getSharedCostForPerson,
+  getPersonPotAmount,
+  getPersonPotLines,
 } from '../../lib/splitMath';
 import {
   formatCurrency,
@@ -45,7 +47,9 @@ function SplitCompletePage() {
 
   const { receiptData } = useSelector((state) => state.receipt);
   const friends = useSelector((state) => state.friends.friends);
-  const { personAssignments } = useSelector((state) => state.splitBill);
+  const { personAssignments, itemPots = {} } = useSelector(
+    (state) => state.splitBill
+  );
   const uiLanguage = useSelector((state) => state.ui.language);
 
   const allOriginalItems = normalizeReceiptItems(receiptData);
@@ -54,6 +58,7 @@ function SplitCompletePage() {
   const sharedTotal = getSharedItemsTotal(allOriginalItems);
   const currency = getReceiptCurrency(receiptData);
   const t = getSplitCompleteLabels(uiLanguage);
+  const friendIds = friends.map((friend) => friend.id);
 
   const participants = friends.map((friend) => ({
     id: friend.id,
@@ -77,12 +82,19 @@ function SplitCompletePage() {
       participants.length,
       personIndex
     );
+    const potAmount = getPersonPotAmount(
+      allOriginalItems,
+      itemPots,
+      participant.id,
+      friendIds
+    );
     const breakdown = calculateParticipantBreakdown(
       participant.assignedItems,
       allOriginalItems,
       totalReceiptSubtotal,
       fees,
-      sharedCost
+      sharedCost,
+      potAmount
     );
     return {
       ...breakdown,
@@ -134,7 +146,18 @@ function SplitCompletePage() {
                 ),
               };
             })
-            .filter(Boolean);
+            .filter(Boolean)
+            .concat(
+              getPersonPotLines(
+                allOriginalItems,
+                itemPots,
+                participant.id,
+                friendIds
+              ).map((line) => ({
+                label: `${line.name} (${t.patunganChip})`,
+                amountLabel: formatCurrency(line.amount, currency),
+              }))
+            );
 
           const rows = [
             {
@@ -260,7 +283,13 @@ function SplitCompletePage() {
                       </span>
                     </div>
 
-                    {participant.assignedItems.length > 0 && (
+                    {(participant.assignedItems.length > 0 ||
+                      getPersonPotLines(
+                        allOriginalItems,
+                        itemPots,
+                        participant.id,
+                        friendIds
+                      ).length > 0) && (
                       <ul className="list-none p-0 mt-3 border-t border-gray-200 pt-3">
                         {participant.assignedItems.map((assigned, index) => {
                           const item = getItemDetails(assigned.itemId);
@@ -282,6 +311,22 @@ function SplitCompletePage() {
                             </li>
                           );
                         })}
+                        {getPersonPotLines(
+                          allOriginalItems,
+                          itemPots,
+                          participant.id,
+                          friendIds
+                        ).map((line) => (
+                          <li
+                            key={line.itemId}
+                            className="flex justify-between text-gray-700 text-sm mb-1"
+                          >
+                            <span>
+                              {line.name} ({t.patunganChip})
+                            </span>
+                            <span>{formatCurrency(line.amount, currency)}</span>
+                          </li>
+                        ))}
                       </ul>
                     )}
 
