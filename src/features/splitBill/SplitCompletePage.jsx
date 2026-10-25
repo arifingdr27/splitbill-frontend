@@ -27,6 +27,46 @@ function WalletIcon({ className = 'h-6 w-6' }) {
   );
 }
 
+function LinkIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      aria-hidden="true"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+      />
+    </svg>
+  );
+}
+
+function PdfIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      aria-hidden="true"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+      />
+    </svg>
+  );
+}
+
 async function shareOrCopyUrl(url, title) {
   if (typeof navigator !== 'undefined' && navigator.share) {
     try {
@@ -247,22 +287,27 @@ function SplitCompletePage() {
           {shareFeedback ? (
             <p className="text-sm text-green-600 text-center">{shareFeedback}</p>
           ) : null}
-          <LoginRequiredButton
-            locked={!token}
-            className="w-full py-3 rounded-lg font-semibold text-orange-600 border border-orange-400 hover:bg-orange-50 disabled:opacity-50"
-            onClick={handleShareLink}
-            disabled={participants.length === 0 || sharing}
-          >
-            {sharing ? t.preparingShare : t.shareLink}
-          </LoginRequiredButton>
-          <button
-            type="button"
-            className="w-full py-3 rounded-lg font-semibold text-orange-600 border border-orange-400 hover:bg-orange-50 disabled:opacity-50"
-            onClick={handleExportPdf}
-            disabled={participants.length === 0 || exportingPdf}
-          >
-            {exportingPdf ? t.preparingPdf : t.exportPdf}
-          </button>
+          <div className="flex gap-2">
+            <LoginRequiredButton
+              locked={!token}
+              wrapperClassName="flex-1 min-w-0"
+              className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-sm font-semibold text-orange-600 border border-orange-400 hover:bg-orange-50 disabled:opacity-50"
+              onClick={handleShareLink}
+              disabled={participants.length === 0 || sharing}
+            >
+              <LinkIcon />
+              {sharing ? t.preparingShare : t.shareLink}
+            </LoginRequiredButton>
+            <button
+              type="button"
+              className="flex-1 min-w-0 inline-flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-sm font-semibold text-orange-600 border border-orange-400 hover:bg-orange-50 disabled:opacity-50"
+              onClick={handleExportPdf}
+              disabled={participants.length === 0 || exportingPdf}
+            >
+              <PdfIcon />
+              {exportingPdf ? t.preparingPdf : t.exportPdf}
+            </button>
+          </div>
           <button
             type="button"
             className="w-full py-3 rounded-lg font-semibold text-white"
@@ -291,21 +336,24 @@ function SplitCompletePage() {
             <p className="text-sm text-gray-600 mb-5 leading-relaxed">
               {t.finishConfirmBody}
             </p>
-            <div className="flex flex-col gap-2 mb-3">
+            <div className="flex gap-2 mb-3">
               <LoginRequiredButton
                 locked={!token}
+                wrapperClassName="flex-1 min-w-0"
                 onClick={handleShareLink}
                 disabled={participants.length === 0 || sharing}
-                className="w-full py-2.5 rounded-lg border border-orange-400 text-orange-600 font-semibold hover:bg-orange-50 disabled:opacity-50"
+                className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 rounded-lg border border-orange-400 text-orange-600 text-sm font-semibold hover:bg-orange-50 disabled:opacity-50"
               >
+                <LinkIcon />
                 {sharing ? t.preparingShare : t.shareLinkNow}
               </LoginRequiredButton>
               <button
                 type="button"
                 onClick={handleExportPdf}
                 disabled={participants.length === 0 || exportingPdf}
-                className="w-full py-2.5 rounded-lg border border-orange-400 text-orange-600 font-semibold hover:bg-orange-50 disabled:opacity-50"
+                className="flex-1 min-w-0 inline-flex items-center justify-center gap-1.5 py-2.5 rounded-lg border border-orange-400 text-orange-600 text-sm font-semibold hover:bg-orange-50 disabled:opacity-50"
               >
+                <PdfIcon />
                 {exportingPdf ? t.preparingPdf : t.exportPdfNow}
               </button>
             </div>

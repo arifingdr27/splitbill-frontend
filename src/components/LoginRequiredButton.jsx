@@ -6,6 +6,7 @@ function LoginRequiredButton({
   locked,
   message,
   className = '',
+  wrapperClassName = '',
   disabled = false,
   onClick,
   children,
@@ -52,7 +53,7 @@ function LoginRequiredButton({
 
   return (
     <span
-      className="relative block w-full"
+      className={`relative block w-full ${wrapperClassName}`.trim()}
       onMouseEnter={() => locked && revealTip()}
       onMouseLeave={() => locked && scheduleHideTip()}
       onFocus={() => locked && revealTip()}
