@@ -4,6 +4,7 @@ import ReceiptDetails from '../features/receipt/ReceiptDetails';
 import AddFriend from '../features/friends/AddFriend';
 import SplitBillPage from '../features/splitBill/SplitBillPage';
 import SplitCompletePage from '../features/splitBill/SplitCompletePage';
+import SharedSplitPage from '../features/splitBill/SharedSplitPage';
 
 const Router = () => {
   return (
@@ -14,6 +15,7 @@ const Router = () => {
         <Route path="/add_friend" element={<AddFriend />} />
         <Route path="/split_bill" element={<SplitBillPage />} />
         <Route path="/split_complete" element={<SplitCompletePage />} />
+        <Route path="/s/:shareId" element={<SharedSplitPage />} />
       </Routes>
     </BrowserRouter>
   );

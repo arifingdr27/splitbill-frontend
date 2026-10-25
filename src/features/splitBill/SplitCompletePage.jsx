@@ -2,22 +2,11 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { resetStore } from '../../app/store';
-import {
-  normalizeReceiptItems,
-  calculateAssignableGrandTotal,
-  getGlobalFees,
-  calculateParticipantBreakdown,
-  getSharedItemsTotal,
-  getSharedCostForPerson,
-  getPersonPotAmount,
-  getPersonPotLines,
-} from '../../lib/splitMath';
-import {
-  formatCurrency,
-  getReceiptCurrency,
-} from '../../lib/formatCurrency';
 import { downloadSplitCompletePdf } from '../../lib/exportSplitPdf';
 import { getSplitCompleteLabels } from '../../lib/pdfLabels';
+import { buildSplitCompleteSnapshot } from '../../lib/splitSnapshot';
+import { createShare } from '../../api/shareApi';
+import LoginRequiredButton from '../../components/LoginRequiredButton';
 
 function WalletIcon({ className = 'h-6 w-6' }) {
   return (
@@ -38,12 +27,32 @@ function WalletIcon({ className = 'h-6 w-6' }) {
   );
 }
 
+async function shareOrCopyUrl(url, title) {
+  if (typeof navigator !== 'undefined' && navigator.share) {
+    try {
+      await navigator.share({ title, url });
+      return 'shared';
+    } catch (error) {
+      if (error?.name === 'AbortError') return 'cancelled';
+    }
+  }
+  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(url);
+    return 'copied';
+  }
+  window.prompt('Copy link:', url);
+  return 'prompted';
+}
+
 function SplitCompletePage() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [exportFailed, setExportFailed] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState(null);
+  const [shareFailed, setShareFailed] = useState(false);
 
   const { receiptData } = useSelector((state) => state.receipt);
   const friends = useSelector((state) => state.friends.friends);
@@ -51,61 +60,17 @@ function SplitCompletePage() {
     (state) => state.splitBill
   );
   const uiLanguage = useSelector((state) => state.ui.language);
+  const token = useSelector((state) => state.auth.token);
 
-  const allOriginalItems = normalizeReceiptItems(receiptData);
-  const fees = getGlobalFees(receiptData);
-  const totalReceiptSubtotal = calculateAssignableGrandTotal(allOriginalItems);
-  const sharedTotal = getSharedItemsTotal(allOriginalItems);
-  const currency = getReceiptCurrency(receiptData);
   const t = getSplitCompleteLabels(uiLanguage);
-  const friendIds = friends.map((friend) => friend.id);
-
-  const participants = friends.map((friend) => ({
-    id: friend.id,
-    name: friend.name,
-    avatar: `https://i.pravatar.cc/40?img=${friend.id % 20 + 10}`,
-    assignedItems: Object.entries(personAssignments[friend.id] || {}).map(
-      ([itemId, quantity]) => ({
-        itemId,
-        quantity,
-      })
-    ),
-    additionalFees: 0.0,
-  }));
-
-  const getItemDetails = (itemId) =>
-    allOriginalItems.find((item) => item.id === itemId);
-
-  const getBreakdown = (participant, personIndex) => {
-    const sharedCost = getSharedCostForPerson(
-      sharedTotal,
-      participants.length,
-      personIndex
-    );
-    const potAmount = getPersonPotAmount(
-      allOriginalItems,
-      itemPots,
-      participant.id,
-      friendIds
-    );
-    const breakdown = calculateParticipantBreakdown(
-      participant.assignedItems,
-      allOriginalItems,
-      totalReceiptSubtotal,
-      fees,
-      sharedCost,
-      potAmount
-    );
-    return {
-      ...breakdown,
-      totalOwed: breakdown.totalOwed + (participant.additionalFees || 0),
-    };
-  };
-
-  const grandTotalAssigned = participants.reduce(
-    (sum, p, index) => sum + getBreakdown(p, index).totalOwed,
-    0
-  );
+  const snapshot = buildSplitCompleteSnapshot({
+    receiptData,
+    friends,
+    personAssignments,
+    itemPots,
+    uiLanguage,
+  });
+  const participants = snapshot.participants || [];
 
   const handleStartNewBill = () => {
     setShowFinishConfirm(true);
@@ -126,91 +91,45 @@ function SplitCompletePage() {
     setExportingPdf(true);
     setExportFailed(false);
     try {
-      const storeName =
-        receiptData?.store_information?.store_name || 'split-bill';
       await downloadSplitCompletePdf({
-        storeName,
-        languageCode: uiLanguage,
-        grandTotalLabel: formatCurrency(grandTotalAssigned, currency),
-        participants: participants.map((participant, personIndex) => {
-          const breakdown = getBreakdown(participant, personIndex);
-          const items = participant.assignedItems
-            .map((assigned) => {
-              const item = getItemDetails(assigned.itemId);
-              if (!item || assigned.quantity === 0) return null;
-              return {
-                label: `${item.name} x${assigned.quantity}`,
-                amountLabel: formatCurrency(
-                  (item.price || 0) * assigned.quantity,
-                  currency
-                ),
-              };
-            })
-            .filter(Boolean)
-            .concat(
-              getPersonPotLines(
-                allOriginalItems,
-                itemPots,
-                participant.id,
-                friendIds
-              ).map((line) => ({
-                label: `${line.name} (${t.patunganChip})`,
-                amountLabel: formatCurrency(line.amount, currency),
-              }))
-            );
-
-          const rows = [
-            {
-              key: 'subtotal',
-              amountLabel: formatCurrency(breakdown.subtotal, currency),
-            },
-          ];
-          if (fees.discount > 0 && breakdown.discount > 0) {
-            rows.push({
-              key: 'discount',
-              amountLabel: `-${formatCurrency(breakdown.discount, currency)}`,
-            });
-          }
-          (breakdown.fees || []).forEach((fee, feeIndex) => {
-            if (!(fee.amount > 0)) return;
-            rows.push({
-              key: fee.type || `fee-${feeIndex}`,
-              label:
-                fee.name ||
-                t[fee.type === 'service_charge' ? 'serviceCharge' : fee.type] ||
-                fee.type,
-              amountLabel: formatCurrency(fee.amount, currency),
-            });
-          });
-          if (breakdown.sharedCost > 0) {
-            rows.push({
-              key: 'sharedCost',
-              amountLabel: formatCurrency(breakdown.sharedCost, currency),
-            });
-          }
-          if (participant.additionalFees > 0) {
-            rows.push({
-              key: 'otherFees',
-              amountLabel: formatCurrency(
-                participant.additionalFees,
-                currency
-              ),
-            });
-          }
-
-          return {
-            name: participant.name,
-            totalLabel: formatCurrency(breakdown.totalOwed, currency),
-            items,
-            rows,
-          };
-        }),
+        storeName: snapshot.storeName,
+        languageCode: snapshot.languageCode,
+        grandTotalLabel: snapshot.grandTotalLabel,
+        participants: participants.map((p) => ({
+          name: p.name,
+          totalLabel: p.totalLabel,
+          items: p.items,
+          rows: p.rows,
+        })),
       });
     } catch (error) {
       console.error('Failed to export PDF', error);
       setExportFailed(true);
     } finally {
       setExportingPdf(false);
+    }
+  };
+
+  const handleShareLink = async () => {
+    if (participants.length === 0 || sharing || !token) return;
+    setSharing(true);
+    setShareFailed(false);
+    setShareFeedback(null);
+    try {
+      const result = await createShare(snapshot);
+      if (!result?.id) throw new Error('missing share id');
+      const url = `${window.location.origin}/s/${result.id}`;
+      const outcome = await shareOrCopyUrl(url, snapshot.storeName || t.title);
+      if (outcome === 'copied' || outcome === 'prompted') {
+        setShareFeedback(t.linkCopied);
+      } else if (outcome === 'shared') {
+        setShareFeedback(t.linkShared);
+      }
+    } catch (error) {
+      console.error('Failed to share link', error);
+      setShareFailed(true);
+    } finally {
+      setSharing(false);
     }
   };
 
@@ -253,143 +172,68 @@ function SplitCompletePage() {
               <p className="text-lg">{t.total}</p>
             </div>
             <p className="text-sm text-gray-600 ml-8">
-              {t.youPaid}: {formatCurrency(grandTotalAssigned, currency)}
+              {t.youPaid}: {snapshot.grandTotalLabel}
             </p>
           </div>
 
           {participants.length === 0 ? (
             <p className="p-4 text-center text-gray-500">{t.noParticipants}</p>
           ) : (
-            participants.map((participant, personIndex) => {
-              const breakdown = getBreakdown(participant, personIndex);
-              return (
-                <div key={participant.id} className="mb-6">
-                  <div className="flex items-center mb-3">
-                    <img
-                      src={participant.avatar}
-                      alt={participant.name}
-                      className="w-10 h-10 rounded-full mr-3"
-                    />
-                    <h2 className="text-lg font-semibold text-gray-800">
-                      {participant.name}
-                    </h2>
-                  </div>
-                  <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
-                    <div className="flex items-center text-gray-800 font-semibold mb-2">
-                      <WalletIcon className="h-5 w-5 mr-2 text-gray-600" />
-                      <p className="text-md">{t.total}</p>
-                      <span className="ml-auto font-bold">
-                        {formatCurrency(breakdown.totalOwed, currency)}
-                      </span>
-                    </div>
-
-                    {(participant.assignedItems.length > 0 ||
-                      getPersonPotLines(
-                        allOriginalItems,
-                        itemPots,
-                        participant.id,
-                        friendIds
-                      ).length > 0) && (
-                      <ul className="list-none p-0 mt-3 border-t border-gray-200 pt-3">
-                        {participant.assignedItems.map((assigned, index) => {
-                          const item = getItemDetails(assigned.itemId);
-                          if (!item || assigned.quantity === 0) return null;
-                          return (
-                            <li
-                              key={index}
-                              className="flex justify-between text-gray-700 text-sm mb-1"
-                            >
-                              <span>
-                                {item.name} x{assigned.quantity}
-                              </span>
-                              <span>
-                                {formatCurrency(
-                                  (item.price || 0) * assigned.quantity,
-                                  currency
-                                )}
-                              </span>
-                            </li>
-                          );
-                        })}
-                        {getPersonPotLines(
-                          allOriginalItems,
-                          itemPots,
-                          participant.id,
-                          friendIds
-                        ).map((line) => (
-                          <li
-                            key={line.itemId}
-                            className="flex justify-between text-gray-700 text-sm mb-1"
-                          >
-                            <span>
-                              {line.name} ({t.patunganChip})
-                            </span>
-                            <span>{formatCurrency(line.amount, currency)}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-
-                    <ul className="list-none p-0 mt-3 border-t border-gray-200 pt-3 text-sm text-gray-600">
-                      <li className="flex justify-between mb-1">
-                        <span>{t.subtotal}</span>
-                        <span>
-                          {formatCurrency(breakdown.subtotal, currency)}
-                        </span>
-                      </li>
-                      {fees.discount > 0 && breakdown.discount > 0 && (
-                        <li className="flex justify-between mb-1 text-red-500 font-semibold">
-                          <span>{t.discount}</span>
-                          <span>
-                            -{formatCurrency(breakdown.discount, currency)}
-                          </span>
-                        </li>
-                      )}
-                      {(breakdown.fees || [])
-                        .filter((fee) => fee.amount > 0)
-                        .map((fee, feeIndex) => (
-                          <li
-                            key={`person-fee-${fee.type}-${feeIndex}`}
-                            className="flex justify-between mb-1"
-                          >
-                            <span>
-                              {fee.name ||
-                                t[
-                                  fee.type === 'service_charge'
-                                    ? 'serviceCharge'
-                                    : fee.type
-                                ] ||
-                                fee.type}
-                            </span>
-                            <span>
-                              {formatCurrency(fee.amount, currency)}
-                            </span>
-                          </li>
-                        ))}
-                      {breakdown.sharedCost > 0 && (
-                        <li className="flex justify-between mb-1">
-                          <span>{t.sharedCost}</span>
-                          <span>
-                            {formatCurrency(breakdown.sharedCost, currency)}
-                          </span>
-                        </li>
-                      )}
-                      {participant.additionalFees > 0 && (
-                        <li className="flex justify-between mb-1">
-                          <span>{t.otherFees}</span>
-                          <span>
-                            {formatCurrency(
-                              participant.additionalFees,
-                              currency
-                            )}
-                          </span>
-                        </li>
-                      )}
-                    </ul>
-                  </div>
+            participants.map((participant, personIndex) => (
+              <div key={`${participant.name}-${personIndex}`} className="mb-6">
+                <div className="flex items-center mb-3">
+                  <img
+                    src={participant.avatar}
+                    alt={participant.name}
+                    className="w-10 h-10 rounded-full mr-3"
+                  />
+                  <h2 className="text-lg font-semibold text-gray-800">
+                    {participant.name}
+                  </h2>
                 </div>
-              );
-            })
+                <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+                  <div className="flex items-center text-gray-800 font-semibold mb-2">
+                    <WalletIcon className="h-5 w-5 mr-2 text-gray-600" />
+                    <p className="text-md">{t.total}</p>
+                    <span className="ml-auto font-bold">
+                      {participant.totalLabel}
+                    </span>
+                  </div>
+
+                  {(participant.items || []).length > 0 && (
+                    <ul className="list-none p-0 mt-3 border-t border-gray-200 pt-3">
+                      {participant.items.map((item, index) => (
+                        <li
+                          key={`${item.label}-${index}`}
+                          className="flex justify-between text-gray-700 text-sm mb-1"
+                        >
+                          <span>{item.label}</span>
+                          <span>{item.amountLabel}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {(participant.rows || []).length > 0 && (
+                    <ul className="list-none p-0 mt-3 border-t border-gray-200 pt-3 text-sm text-gray-600">
+                      {participant.rows.map((row, rowIndex) => (
+                        <li
+                          key={`${row.key}-${rowIndex}`}
+                          className={`flex justify-between mb-1 ${
+                            row.key === 'discount'
+                              ? 'text-red-500 font-semibold'
+                              : ''
+                          }`}
+                        >
+                          <span>{row.label}</span>
+                          <span>{row.amountLabel}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            ))
           )}
         </div>
 
@@ -397,6 +241,20 @@ function SplitCompletePage() {
           {exportFailed ? (
             <p className="text-sm text-red-500 text-center">{t.exportError}</p>
           ) : null}
+          {shareFailed ? (
+            <p className="text-sm text-red-500 text-center">{t.shareError}</p>
+          ) : null}
+          {shareFeedback ? (
+            <p className="text-sm text-green-600 text-center">{shareFeedback}</p>
+          ) : null}
+          <LoginRequiredButton
+            locked={!token}
+            className="w-full py-3 rounded-lg font-semibold text-orange-600 border border-orange-400 hover:bg-orange-50 disabled:opacity-50"
+            onClick={handleShareLink}
+            disabled={participants.length === 0 || sharing}
+          >
+            {sharing ? t.preparingShare : t.shareLink}
+          </LoginRequiredButton>
           <button
             type="button"
             className="w-full py-3 rounded-lg font-semibold text-orange-600 border border-orange-400 hover:bg-orange-50 disabled:opacity-50"
@@ -434,6 +292,14 @@ function SplitCompletePage() {
               {t.finishConfirmBody}
             </p>
             <div className="flex flex-col gap-2 mb-3">
+              <LoginRequiredButton
+                locked={!token}
+                onClick={handleShareLink}
+                disabled={participants.length === 0 || sharing}
+                className="w-full py-2.5 rounded-lg border border-orange-400 text-orange-600 font-semibold hover:bg-orange-50 disabled:opacity-50"
+              >
+                {sharing ? t.preparingShare : t.shareLinkNow}
+              </LoginRequiredButton>
               <button
                 type="button"
                 onClick={handleExportPdf}

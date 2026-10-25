@@ -15,8 +15,11 @@ const appReducer = combineReducers({
 
 const rootReducer = (state, action) => {
   if (action.type === 'app/resetStore') {
-    // Keep language preference across "start new bill"
-    state = state?.ui ? { ui: state.ui } : undefined;
+    // Keep language + auth across "start new bill"
+    state = {
+      ...(state?.ui ? { ui: state.ui } : {}),
+      ...(state?.auth ? { auth: state.auth } : {}),
+    };
   }
   return appReducer(state, action);
 };
